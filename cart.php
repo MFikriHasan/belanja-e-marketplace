@@ -3,9 +3,10 @@
     require 'koneksi.php';
     include 'login_check.php';
 
-    if (empty($_SESSION['cart'])) {
-        header('Location: /home.php');
-        exit;
+    
+
+    if (isset($_POST['remove'])) {
+        $_SESSION['cart'] = [];
     }
 
     $carts = $_SESSION['cart'];
@@ -199,7 +200,7 @@
           <div class="bg-background/50 px-5 py-3 border-b border-border-color flex items-center gap-3">
             <input type="checkbox" class="custom-checkbox" data-shop-checkbox="my-cart" checked>
             <div class="flex items-center gap-2">
-              <i data-lucide="store" class="w-5 h-5 text-primary"></i>
+              <i data-lucide="shopping-cart" class="w-5 h-5 text-primary"></i>
               <span class="font-semibold text-text-main">My Cart</span>
             </div>
           </div>
@@ -261,6 +262,9 @@
               </div>
             </div>
             <?php endforeach; ?>
+            <?php if (empty($_SESSION['cart'])): ?>
+                <p class="px-2 py-2 text-center">Your cart is Lonely...</p>
+            <?php endif; ?>
           </div>
         </div>
 
@@ -385,26 +389,28 @@
 </div>
 
 <!-- Delete Confirmation Modal -->
-  <div id="delete-modal" class="fixed inset-0 bg-text-main/40 backdrop-blur-sm z-50 hidden items-center justify-center p-4 opacity-0 transition-opacity duration-300">
-    <div class="bg-surface rounded-2xl w-full max-w-sm shadow-2xl transform scale-95 transition-transform duration-300" id="delete-modal-content">
-      <div class="p-6 text-center">
-        <div class="w-16 h-16 bg-danger/10 rounded-full flex items-center justify-center mx-auto mb-4">
-          <i data-lucide="alert-triangle" class="w-8 h-8 text-danger"></i>
+    <form action="" method="post">
+        <div id="delete-modal" class="fixed inset-0 bg-text-main/40 backdrop-blur-sm z-50 hidden items-center justify-center p-4 opacity-0 transition-opacity duration-300">
+            <div class="bg-surface rounded-2xl w-full max-w-sm shadow-2xl transform scale-95 transition-transform duration-300" id="delete-modal-content">
+            <div class="p-6 text-center">
+                <div class="w-16 h-16 bg-danger/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                <i data-lucide="alert-triangle" class="w-8 h-8 text-danger"></i>
+                </div>
+                <h3 class="text-lg font-bold text-text-main mb-2">Remove Item?</h3>
+                <p class="text-sm text-text-muted mb-6">Are you sure you want to remove this item from your cart? This action cannot be undone.</p>
+                
+                <div class="flex gap-3">
+                <button class="flex-1 py-2.5 px-4 bg-background border border-border-color text-text-main rounded-xl font-medium hover:bg-border-color transition-colors cursor-pointer" onclick="closeDeleteModal()">
+                    Cancel
+                </button>
+                <button type="submit" name="remove" class="flex-1 py-2.5 px-4 bg-danger text-white rounded-xl font-medium hover:bg-red-600 transition-colors cursor-pointer shadow-md shadow-danger/20">
+                    Yes, Remove
+                </button>
+                </div>
+            </div>
+            </div>
         </div>
-        <h3 class="text-lg font-bold text-text-main mb-2">Remove Item?</h3>
-        <p class="text-sm text-text-muted mb-6">Are you sure you want to remove this item from your cart? This action cannot be undone.</p>
-        
-        <div class="flex gap-3">
-          <button class="flex-1 py-2.5 px-4 bg-background border border-border-color text-text-main rounded-xl font-medium hover:bg-border-color transition-colors cursor-pointer" onclick="closeDeleteModal()">
-            Cancel
-          </button>
-          <button class="flex-1 py-2.5 px-4 bg-danger text-white rounded-xl font-medium hover:bg-red-600 transition-colors cursor-pointer shadow-md shadow-danger/20" onclick="confirmDelete()">
-            Yes, Remove
-          </button>
-        </div>
-      </div>
-    </div>
-  </div>
+    </form>
 
 <script>
 
@@ -591,33 +597,6 @@
         modal.classList.add('hidden');
         modal.classList.remove('flex');
       }, 300); // match duration
-    };
-
-    window.confirmDelete = () => {
-      if (itemToDelete === 'all') {
-        // Delete all selected
-        document.querySelectorAll('[data-item-checkbox]:checked').forEach(cb => {
-          const id = cb.dataset.itemCheckbox;
-          const el = document.querySelector(`[data-item-id="${id}"]`);
-          if(el) el.remove();
-        });
-      } else if (itemToDelete) {
-        // Delete specific item
-        const el = document.querySelector(`[data-item-id="${itemToDelete}"]`);
-        if (el) el.remove();
-      }
-      
-      // Cleanup empty shops
-      document.querySelectorAll('[data-shop-group]').forEach(shop => {
-        const items = shop.querySelectorAll('[data-item-id]');
-        if (items.length === 0) {
-          shop.remove();
-        }
-      });
-
-      closeDeleteModal();
-      calculateTotals();
-      updateGlobalCheckboxState();
     };
 
     
