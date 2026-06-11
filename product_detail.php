@@ -1,11 +1,116 @@
+<?php
+  
+  require 'koneksi.php';
+  include 'login_check.php';
 
+  
+  if (isset($_POST['add_to_cart'])) {
+
+    $post_product_id = (int)($_POST['product_id'] ?? 0);
+    $post_variant_id = (int)($_POST['variant_id'] ?? 0);
+    $post_qty        = max(1, min(10, (int)($_POST['qty'] ?? 1)));
+
+    if ($post_product_id > 0 && $post_variant_id > 0) {
+
+      if (!isset($_SESSION['cart'])) $_SESSION['cart'] = [];
+
+      $key = $post_product_id . '_' . $post_variant_id;
+
+      if (isset($_SESSION['cart'][$key])) {
+        
+        $_SESSION['cart'][$key]['qty'] = min(10, $_SESSION['cart'][$key]['qty'] + $post_qty);
+        $cart_name  = $_SESSION['cart'][$key]['name'];
+        $cart_color = $_SESSION['cart'][$key]['color'];
+        $cart_qty   = $_SESSION['cart'][$key]['qty'];
+      } else {
+        
+        $stmt = $koneksi->prepare(
+          "SELECT p.name, p.price, cv.color_name, cv.product_image
+           FROM product p
+           JOIN color_varian cv ON cv.product_id = p.id
+           WHERE p.id = ? AND cv.id = ?"
+        );
+        $stmt->bind_param("ii", $post_product_id, $post_variant_id);
+        $stmt->execute();
+        $cart_item = $stmt->get_result()->fetch_assoc();
+
+        if ($cart_item) {
+          $_SESSION['cart'][$key] = [
+            'product_id' => $post_product_id,
+            'variant_id' => $post_variant_id,
+            'name'       => $cart_item['name'],
+            'color'      => $cart_item['color_name'],
+            'image'      => $cart_item['product_image'],
+            'price'      => $cart_item['price'],
+            'qty'        => $post_qty,
+          ];
+          $cart_name  = $cart_item['name'];
+          $cart_color = $cart_item['color_name'];
+          $cart_qty   = $post_qty;
+        }
+      }
+
+      if (isset($cart_name)) {
+        $_SESSION['toast'] = [
+          'message' => "Added {$cart_qty}x {$cart_name} ({$cart_color}) to cart!",
+          'type'    => 'success',
+        ];
+      } else {
+        $_SESSION['toast'] = ['message' => 'Produk tidak ditemukan.', 'type' => 'error'];
+      }
+    } else {
+      $_SESSION['toast'] = ['message' => 'Pilih warna terlebih dahulu.', 'type' => 'error'];
+    }
+
+    
+    header("Location: product_detail.php?id={$post_product_id}");
+    exit;
+  }
+  
+
+  $str_id = $_GET['id'];
+  $product_id = (int)$str_id;
+
+  if ($product_id === 0) {
+    header('Location: /home.php');
+  }
+
+  // product detail
+  $query_main = "SELECT p.*, s.name AS seller_name, s.logo AS seller_logo, c.name AS category_name 
+               FROM product p
+               INNER JOIN seller s ON p.seller_id = s.id
+               INNER JOIN category c ON p.category_id = c.id
+               WHERE p.id = ?";
+  $pre = $koneksi->prepare($query_main);
+  $pre->bind_param("i", $product_id);
+  $pre->execute();
+  $result_main = $pre->get_result();
+  $product = $result_main->fetch_assoc();
+
+  // variant color
+
+  $query_variant = "SELECT id, color_name, color_stok, product_image FROM color_varian WHERE product_id = ?";
+  $pre2 = $koneksi->prepare($query_variant);
+  $pre2->bind_param("i", $product_id);
+  $pre2->execute();
+  $variants = $pre2->get_result();
+
+  // detail spec
+  $query_spec = "SELECT key_name, value_name FROM spesification WHERE product_id = ?";
+  $pre3 = $koneksi->prepare($query_spec);
+  $pre3->bind_param("i", $product_id);
+  $pre3->execute();
+  $specifications = $pre3->get_result();
+
+
+?>
 
 <!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Product Detail - Belanja</title>
+<title>Product Detail - <?= $product['name'] ?></title>
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
 <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js" onload="window.lucideLoaded=true; if(window.initLucide) window.initLucide();"></script>
@@ -54,54 +159,9 @@
 <body class="font-sans bg-white text-foreground min-h-screen flex flex-col">
 
 <!-- Navbar -->
-<nav class="sticky top-0 z-40 bg-white border-b border-border shadow-sm">
-  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-    <div class="flex justify-between h-16 items-center gap-4">
-      
-      <!-- Logo -->
-      <a href="index.html" class="flex-shrink-0 flex items-center gap-2 text-primary">
-        <i data-lucide="shopping-bag" class="h-8 w-8"></i>
-        <span class="font-bold text-xl tracking-tight hidden sm:block">Belanja</span>
-      </a>
-
-      <!-- Desktop Search -->
-      <div class="hidden md:flex flex-1 max-w-2xl mx-4">
-        <div class="relative w-full group">
-          <input type="text" id="inputSearchDesktop" class="w-full bg-muted border border-transparent rounded-full py-2.5 pl-12 pr-4 text-sm focus:bg-white focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all" placeholder="Search products, brands and categories...">
-          <i data-lucide="search" class="absolute left-4 top-3 h-5 w-5 text-secondary group-focus-within:text-primary transition-colors"></i>
-        </div>
-      </div>
-
-      <!-- Actions -->
-      <div class="flex items-center gap-2 sm:gap-4">
-        <!-- Mobile Search Toggle -->
-        <button onclick="openSearchModal()" class="md:hidden p-2 text-secondary hover:text-primary hover:bg-muted rounded-full transition-colors cursor-pointer">
-          <i data-lucide="search" class="h-6 w-6"></i>
-        </button>
-        
-        <!-- Cart -->
-        <a href="/cart.html" class="p-2 text-secondary hover:text-primary hover:bg-muted rounded-full transition-colors relative cursor-pointer">
-          <i data-lucide="shopping-cart" class="h-6 w-6"></i>
-          <span class="absolute top-1 right-1 bg-red-500 text-white text-[10px] font-bold h-4 min-w-[16px] px-1 flex items-center justify-center rounded-full border-2 border-white">3</span>
-        </a>
-        
-        <!-- Notifications -->
-        <a href="/history_transaction.html" class=" p-2 text-secondary hover:text-primary hover:bg-muted rounded-full transition-colors relative cursor-pointer">
-          <i data-lucide="bell" class="h-6 w-6"></i>
-          <span class="absolute top-1 right-1 bg-red-500 text-white text-[10px] font-bold h-2 w-2 rounded-full border-2 border-white"></span>
-        </a>
-        
-        <!-- User Profile -->
-         <a href="/buyer_update_profile.html">
-           <div class="h-9 w-9 rounded-full bg-muted overflow-hidden border border-border cursor-pointer ml-2 hover:ring-2 hover:ring-primary hover:ring-offset-2 transition-all" onclick="showToast('Profile menu clicked', 'success')">
-             <img src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop" alt="User" class="w-full h-full object-cover">
-           </div>
-         </a>
-      </div>
-
-    </div>
-  </div>
-</nav>
+<?php
+  include 'navbar_buyer.php';
+?>
 
 <!-- Main Content -->
 <main class="flex-1 max-w-7xl mx-auto w-full px-4 md:px-8 py-6 md:py-8">
@@ -110,11 +170,11 @@
   <nav class="flex items-center gap-2 text-sm text-secondary mb-6 md:mb-8 overflow-x-auto scrollbar-hide whitespace-nowrap">
     <a href="#" class="hover:text-primary transition-colors">Home</a>
     <i data-lucide="chevron-right" class="size-4"></i>
-    <a href="#" class="hover:text-primary transition-colors">Electronics</a>
+    <a href="#" class="hover:text-primary transition-colors">Product Detail</a>
     <i data-lucide="chevron-right" class="size-4"></i>
-    <a href="#" class="hover:text-primary transition-colors">Audio</a>
+    <a href="#" class="hover:text-primary transition-colors"><?= $product['category_name'] ?></a>
     <i data-lucide="chevron-right" class="size-4"></i>
-    <span class="text-foreground font-medium truncate">Sony WH-1000XM5 Wireless Headphones</span>
+    <span class="text-foreground font-medium truncate"><?= $product['name'] ?></span>
   </nav>
 
   <!-- Product Layout -->
@@ -123,8 +183,16 @@
     <!-- Left Column: Images (5 cols on desktop) -->
     <div class="lg:col-span-5 flex flex-col gap-4">
       <!-- Main Image -->
+      <?php
+        
+        $variants_arr = [];
+        while ($v = $variants->fetch_assoc()) {
+          $variants_arr[] = $v;
+        }
+        $first_image = !empty($variants_arr) ? $variants_arr[0]['product_image'] : '';
+      ?>
       <div class="aspect-square rounded-3xl overflow-hidden bg-card-grey border border-border relative group flex items-center justify-center p-8">
-        <img id="main-product-image" src="https://images.unsplash.com/photo-1618366712010-f4ae9c647dcb?w=800&q=80&fit=crop" alt="Product" class="w-full h-full object-contain transition-transform duration-500 group-hover:scale-105">
+        <img id="main-product-image" src="<?= $first_image ?>" alt="Product" class="w-full h-full object-contain transition-transform duration-500 group-hover:scale-105">
         <button class="absolute top-4 right-4 size-10 bg-white rounded-full shadow-sm flex items-center justify-center text-secondary hover:text-error hover:bg-error/10 transition-colors cursor-pointer">
           <i data-lucide="heart" class="size-5"></i>
         </button>
@@ -132,18 +200,11 @@
       
       <!-- Thumbnails -->
       <div class="flex gap-3 overflow-x-auto scrollbar-hide pb-2">
-        <button onclick="changeImage(this, 'https://images.unsplash.com/photo-1618366712010-f4ae9c647dcb?w=800&q=80&fit=crop')" class="thumbnail-btn flex-shrink-0 size-20 rounded-xl border-2 border-primary overflow-hidden bg-card-grey p-2 cursor-pointer">
-          <img src="https://images.unsplash.com/photo-1618366712010-f4ae9c647dcb?w=200&q=80&fit=crop" class="w-full h-full object-contain">
-        </button>
-        <button onclick="changeImage(this, 'https://images.unsplash.com/photo-1546435770-a3e426bf472b?w=800&q=80&fit=crop')" class="thumbnail-btn flex-shrink-0 size-20 rounded-xl border-2 border-transparent hover:border-border overflow-hidden bg-card-grey p-2 cursor-pointer transition-colors">
-          <img src="https://images.unsplash.com/photo-1546435770-a3e426bf472b?w=200&q=80&fit=crop" class="w-full h-full object-contain">
-        </button>
-        <button onclick="changeImage(this, 'https://images.unsplash.com/photo-1583394838336-acd977736f90?w=800&q=80&fit=crop')" class="thumbnail-btn flex-shrink-0 size-20 rounded-xl border-2 border-transparent hover:border-border overflow-hidden bg-card-grey p-2 cursor-pointer transition-colors">
-          <img src="https://images.unsplash.com/photo-1583394838336-acd977736f90?w=200&q=80&fit=crop" class="w-full h-full object-contain">
-        </button>
-        <button onclick="changeImage(this, 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=800&q=80&fit=crop')" class="thumbnail-btn flex-shrink-0 size-20 rounded-xl border-2 border-transparent hover:border-border overflow-hidden bg-card-grey p-2 cursor-pointer transition-colors">
-          <img src="https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=200&q=80&fit=crop" class="w-full h-full object-contain">
-        </button>
+        <?php foreach ($variants_arr as $idx => $variant): ?>
+          <button onclick="changeImage(this, '<?= htmlspecialchars($variant['product_image']) ?>')" class="thumbnail-btn flex-shrink-0 size-20 rounded-xl border-2 <?= $idx === 0 ? 'border-primary' : 'border-transparent' ?> overflow-hidden bg-card-grey p-2 cursor-pointer">
+            <img src="<?= htmlspecialchars($variant['product_image']) ?>" class="w-full h-full object-contain">
+          </button>
+        <?php endforeach; ?>
       </div>
     </div>
 
@@ -156,7 +217,7 @@
           <span class="bg-primary/10 text-primary text-xs font-semibold px-2.5 py-1 rounded-md uppercase tracking-wider">Best Seller</span>
           <span class="text-sm text-secondary flex items-center gap-1"><i data-lucide="check-circle-2" class="size-4 text-success"></i> In Stock</span>
         </div>
-        <h1 class="text-2xl md:text-3xl lg:text-4xl font-bold text-foreground leading-tight mb-3">Sony WH-1000XM5 Wireless Noise Canceling Headphones</h1>
+        <h1 class="text-2xl md:text-3xl lg:text-4xl font-bold text-foreground leading-tight mb-3"><?= $product['name'] ?></h1>
         
         <div class="flex items-center gap-4 text-sm">
           <div class="flex items-center gap-1 text-warning">
@@ -178,8 +239,8 @@
       <div class="mb-8 p-5 rounded-2xl bg-muted/50 border border-border flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <div class="flex items-end gap-3 mb-1">
-            <span class="text-4xl font-bold text-primary">$348.00</span>
-            <span class="text-lg text-secondary line-through mb-1">$399.00</span>
+            <span class="text-4xl font-bold text-primary">$<?= number_format($product['price'], 0, ",", ".") ?></span>
+            
           </div>
           <p class="text-sm text-success font-medium">Save $51.00 (13%)</p>
         </div>
@@ -191,51 +252,49 @@
 
       <!-- Variants (Color) -->
       <div class="mb-8">
-        <h3 class="text-sm font-semibold text-foreground mb-3">Color: <span id="selected-color-label" class="text-secondary font-normal">Midnight Blue</span></h3>
+        <h3 class="text-sm font-semibold text-foreground mb-3">
+          Color: <span id="selected-color-label" class="text-secondary font-normal">
+            <?= htmlspecialchars($variants_arr[0]['color_name'] ?? '-') ?>
+          </span>
+        </h3>
         <div class="flex flex-wrap gap-3">
-          <div class="relative">
-            <input type="radio" name="color" id="color-blue" class="peer sr-only variant-radio" checked onchange="document.getElementById('selected-color-label').textContent='Midnight Blue'">
-            <label for="color-blue" class="flex items-center gap-2 px-4 py-2.5 rounded-xl border-2 border-border cursor-pointer transition-all hover:border-primary/50">
-              <span class="size-4 rounded-full bg-[#1e3a8a] border border-black/10"></span>
-              <span class="text-sm font-medium">Blue</span>
-            </label>
-          </div>
-          <div class="relative">
-            <input type="radio" name="color" id="color-silver" class="peer sr-only variant-radio" onchange="document.getElementById('selected-color-label').textContent='Platinum Silver'">
-            <label for="color-silver" class="flex items-center gap-2 px-4 py-2.5 rounded-xl border-2 border-border cursor-pointer transition-all hover:border-primary/50">
-              <span class="size-4 rounded-full bg-[#e5e7eb] border border-black/10"></span>
-              <span class="text-sm font-medium">Silver</span>
-            </label>
-          </div>
-          <div class="relative">
-            <input type="radio" name="color" id="color-black" class="peer sr-only variant-radio" onchange="document.getElementById('selected-color-label').textContent='Matte Black'">
-            <label for="color-black" class="flex items-center gap-2 px-4 py-2.5 rounded-xl border-2 border-border cursor-pointer transition-all hover:border-primary/50">
-              <span class="size-4 rounded-full bg-[#111827] border border-black/10"></span>
-              <span class="text-sm font-medium">Black</span>
-            </label>
-          </div>
+          <?php foreach ($variants_arr as $idx => $variant): ?>
+            <div class="relative">
+              <input type="radio" name="color" id="color-<?= $variant['id'] ?>" class="peer sr-only variant-radio" <?= $idx === 0 ? 'checked' : '' ?> onchange="document.getElementById('selected-color-label').textContent='<?= htmlspecialchars($variant['color_name']) ?>'; document.getElementById('input-variant-id').value='<?= $variant['id'] ?>';">
+              <label for="color-<?= $variant['id'] ?>" class="flex items-center gap-2 px-4 py-2.5 rounded-xl border-2 border-border cursor-pointer transition-all hover:border-primary/50">
+                <span class="text-sm font-medium"><?= htmlspecialchars($variant['color_name']) ?></span>
+              </label>
+            </div>
+          <?php endforeach; ?>
         </div>
       </div>
 
       <!-- Actions (Qty & Buttons) -->
-      <div class="flex flex-col sm:flex-row gap-4 mb-8">
-        <!-- Quantity -->
-        <div class="flex items-center justify-between border-2 border-border rounded-xl h-14 px-2 sm:w-32 bg-white">
-          <button onclick="updateQty(-1)" class="size-10 flex items-center justify-center rounded-lg hover:bg-muted text-secondary transition-colors cursor-pointer">
-            <i data-lucide="minus" class="size-4"></i>
-          </button>
-          <span id="qty-display" class="font-semibold text-foreground w-8 text-center">1</span>
-          <button onclick="updateQty(1)" class="size-10 flex items-center justify-center rounded-lg hover:bg-muted text-secondary transition-colors cursor-pointer">
-            <i data-lucide="plus" class="size-4"></i>
+      <form method="POST" action="product_detail.php?id=<?= $product_id ?>">
+        <input type="hidden" name="add_to_cart" value="1">
+        <input type="hidden" name="product_id" value="<?= $product_id ?>">
+        <input type="hidden" name="variant_id" id="input-variant-id" value="<?= $variants_arr[0]['id'] ?? '' ?>">
+        <input type="hidden" name="qty" id="input-qty" value="1">
+
+        <div class="flex flex-col sm:flex-row gap-4 mb-8">
+          <!-- Quantity -->
+          <div class="flex items-center justify-between border-2 border-border rounded-xl h-14 px-2 sm:w-32 bg-white">
+            <button type="button" onclick="updateQty(-1)" class="size-10 flex items-center justify-center rounded-lg hover:bg-muted text-secondary transition-colors cursor-pointer">
+              <i data-lucide="minus" class="size-4"></i>
+            </button>
+            <span id="qty-display" class="font-semibold text-foreground w-8 text-center">1</span>
+            <button type="button" onclick="updateQty(1)" class="size-10 flex items-center justify-center rounded-lg hover:bg-muted text-secondary transition-colors cursor-pointer">
+              <i data-lucide="plus" class="size-4"></i>
+            </button>
+          </div>
+          
+          <!-- Add to Cart -->
+          <button type="submit" class="flex-1 h-14 bg-primary hover:bg-primary-hover text-white py-3 rounded-xl font-semibold flex items-center justify-center gap-2 transition-colors shadow-lg shadow-primary/25 cursor-pointer">
+            <i data-lucide="shopping-cart" class="size-5"></i>
+            Add to Cart
           </button>
         </div>
-        
-        <!-- Add to Cart -->
-        <button onclick="addToCart()" class="flex-1 h-14 bg-primary hover:bg-primary-hover text-white py-3 rounded-xl font-semibold flex items-center justify-center gap-2 transition-colors shadow-lg shadow-primary/25 cursor-pointer">
-          <i data-lucide="shopping-cart" class="size-5"></i>
-          Add to Cart
-        </button>
-      </div>
+      </form>
 
       <!-- Merchant Info Card -->
       <div class="flex items-center justify-between p-4 rounded-2xl border border-border bg-card-grey mb-8">
@@ -262,26 +321,24 @@
         <div class="border border-border rounded-2xl overflow-hidden bg-white">
           <table class="w-full text-sm text-left">
             <tbody>
-              <tr class="border-b border-border">
-                <th class="py-3 px-4 bg-muted/50 font-medium text-secondary w-1/3">Brand</th>
-                <td class="py-3 px-4 text-foreground font-medium">Sony</td>
+              <?php
+                $spec_rows = [];
+                while ($spec = $specifications->fetch_assoc()) {
+                  $spec_rows[] = $spec;
+                }
+                foreach ($spec_rows as $i => $spec):
+                  $is_last = ($i === count($spec_rows) - 1);
+              ?>
+              <tr class="<?= !$is_last ? 'border-b border-border' : '' ?>">
+                <th class="py-3 px-4 bg-muted/50 font-medium text-secondary w-1/3"><?= htmlspecialchars($spec['key_name']) ?></th>
+                <td class="py-3 px-4 text-foreground"><?= htmlspecialchars($spec['value_name']) ?></td>
               </tr>
-              <tr class="border-b border-border">
-                <th class="py-3 px-4 bg-muted/50 font-medium text-secondary">Form Factor</th>
-                <td class="py-3 px-4 text-foreground">Over Ear</td>
-              </tr>
-              <tr class="border-b border-border">
-                <th class="py-3 px-4 bg-muted/50 font-medium text-secondary">Connectivity</th>
-                <td class="py-3 px-4 text-foreground">Wireless (Bluetooth 5.2), Wired</td>
-              </tr>
-              <tr class="border-b border-border">
-                <th class="py-3 px-4 bg-muted/50 font-medium text-secondary">Battery Life</th>
-                <td class="py-3 px-4 text-foreground">Up to 30 hours (NC on)</td>
-              </tr>
+              <?php endforeach; ?>
+              <?php if (empty($spec_rows)): ?>
               <tr>
-                <th class="py-3 px-4 bg-muted/50 font-medium text-secondary">Weight</th>
-                <td class="py-3 px-4 text-foreground">250g</td>
+                <td colspan="2" class="py-4 px-4 text-secondary text-center">No specifications available.</td>
               </tr>
+              <?php endif; ?>
             </tbody>
           </table>
         </div>
@@ -573,6 +630,7 @@
     if (qty < 1) qty = 1;
     if (qty > 10) qty = 10; // Max limit example
     document.getElementById('qty-display').textContent = qty;
+    document.getElementById('input-qty').value = qty; // sync ke form
   }
 
   // Tab Logic
@@ -663,6 +721,14 @@
       openSearchModal(); 
     } 
   });
+
+  
+  <?php if (!empty($_SESSION['toast'])): ?>
+  document.addEventListener('DOMContentLoaded', function() {
+    showToast(<?= json_encode($_SESSION['toast']['message']) ?>, <?= json_encode($_SESSION['toast']['type']) ?>);
+  });
+  <?php unset($_SESSION['toast']); ?>
+  <?php endif; ?>
 </script>
 
 

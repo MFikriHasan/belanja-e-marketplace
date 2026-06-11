@@ -25,9 +25,8 @@
         </button>
         
         <!-- Cart -->
-        <a href="/cart.html" class="p-2 text-secondary hover:text-primary hover:bg-muted rounded-full transition-colors relative cursor-pointer">
+        <a href="/cart.php" class="p-2 text-secondary hover:text-primary hover:bg-muted rounded-full transition-colors relative cursor-pointer">
           <i data-lucide="shopping-cart" class="h-6 w-6"></i>
-          <span class="absolute top-1 right-1 bg-red-500 text-white text-[10px] font-bold h-4 min-w-[16px] px-1 flex items-center justify-center rounded-full border-2 border-white">3</span>
         </a>
         
         <!-- Notifications -->
