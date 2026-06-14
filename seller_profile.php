@@ -1,6 +1,90 @@
 <?php
-    require 'koneksi.php';
-    include 'login_check.php';
+// Session check dan database connection
+
+require 'koneksi.php';
+include 'login_check.php';
+
+// Redirect ke login jika tidak ada session
+if (!isset($_SESSION['seller_id'])) {
+    header("Location: seller_login.php");
+    exit();
+}
+
+$seller_id = $_SESSION['seller_id'];
+$success_message = '';
+$error_message = '';
+$seller = array();
+
+// Ambil data seller dari database
+$query = "SELECT id, name, email, phone, address, opening_hour, closing_hour FROM seller WHERE id = ?";
+$stmt = $koneksi->prepare($query);
+$stmt->bind_param('i', $seller_id);
+$stmt->execute();
+$result = $stmt->get_result();
+
+if ($result->num_rows > 0) {
+    $seller = $result->fetch_assoc();
+} else {
+    header("Location: seller_login.php");
+    exit();
+}
+
+// Handle POST request untuk update profil
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $name = trim($_POST['shop_name'] ?? '');
+    $email = trim($_POST['email'] ?? '');
+    $phone = trim($_POST['phone'] ?? '');
+    $address = trim($_POST['address'] ?? '');
+    $opening_hour = trim($_POST['opening_hour'] ?? '');
+    $closing_hour = trim($_POST['closing_hour'] ?? '');
+    $new_password = trim($_POST['new_password'] ?? '');
+    $confirm_password = trim($_POST['confirm_password'] ?? '');
+
+    // Validasi input
+    if (empty($name) || empty($email)) {
+        $error_message = 'Shop Name dan Email tidak boleh kosong!';
+    } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        $error_message = 'Format email tidak valid!';
+    } elseif (!empty($new_password) && $new_password !== $confirm_password) {
+        $error_message = 'Password baru dan konfirmasi password tidak sama!';
+    } elseif (!empty($new_password) && strlen($new_password) < 6) {
+        $error_message = 'Password minimal 6 karakter!';
+    } else {
+        // Jika password baru diisi, hash password
+        if (!empty($new_password)) {
+            $hashed_password = password_hash($new_password, PASSWORD_DEFAULT);
+            $update_query = "UPDATE seller SET name = ?, email = ?, phone = ?, address = ?, opening_hour = ?, closing_hour = ?, password = ? WHERE id = ?";
+            $update_stmt = $koneksi->prepare($update_query);
+            $update_stmt->bind_param('sssssssi', $name, $email, $phone, $address, $opening_hour, $closing_hour, $hashed_password, $seller_id);
+        } else {
+            // Jika password kosong, jangan update password
+            $update_query = "UPDATE seller SET name = ?, email = ?, phone = ?, address = ?, opening_hour = ?, closing_hour = ? WHERE id = ?";
+            $update_stmt = $koneksi->prepare($update_query);
+            $update_stmt->bind_param('ssssssi', $name, $email, $phone, $address, $opening_hour, $closing_hour, $seller_id);
+        }
+
+        if ($update_stmt->execute()) {
+            // Update session
+            $_SESSION['seller_name'] = $name;
+            $_SESSION['seller_email'] = $email;
+
+            // Update data seller untuk ditampilkan
+            $seller['name'] = $name;
+            $seller['email'] = $email;
+            $seller['phone'] = $phone;
+            $seller['address'] = $address;
+            $seller['opening_hour'] = $opening_hour;
+            $seller['closing_hour'] = $closing_hour;
+
+            $success_message = 'Profil berhasil diperbarui!';
+        } else {
+            $error_message = 'Gagal mengupdate profil. Silakan coba lagi.';
+        }
+        $update_stmt->close();
+    }
+}
+
+$stmt->close();
 ?>
 
 <!DOCTYPE html>
@@ -145,8 +229,8 @@
         <!-- User Profile -->
         <div class="flex items-center gap-3 cursor-pointer hover:opacity-80 transition-opacity">
           <div class="text-right hidden sm:block">
-            <p class="font-semibold text-sm leading-tight">Blyad Store</p>
-            <p class="text-secondary text-xs">blyad.store@example.com</p>
+            <p class="font-semibold text-sm leading-tight"><?php echo htmlspecialchars($seller['name'] ?? 'Seller'); ?></p>
+            <p class="text-secondary text-xs"><?php echo htmlspecialchars($seller['email'] ?? ''); ?></p>
           </div>
           <div class="relative">
             <img src="https://images.unsplash.com/photo-1560179707-f14e90ef3623?w=100&h=100&fit=crop" alt="User Avatar" class="size-11 rounded-xl object-cover ring-2 ring-border">
@@ -160,6 +244,21 @@
   <!-- Scrollable Content -->
   <div class="flex-1 overflow-y-auto p-5 md:p-8">
     <div class="max-w-6xl mx-auto">
+      
+      <!-- Alert Messages -->
+      <?php if (!empty($success_message)): ?>
+        <div class="mb-6 p-4 rounded-2xl bg-success/10 border border-success text-success flex items-center gap-3">
+          <i data-lucide="check-circle" class="size-5 flex-shrink-0"></i>
+          <span class="font-medium"><?php echo htmlspecialchars($success_message); ?></span>
+        </div>
+      <?php endif; ?>
+
+      <?php if (!empty($error_message)): ?>
+        <div class="mb-6 p-4 rounded-2xl bg-error/10 border border-error text-error flex items-center gap-3">
+          <i data-lucide="alert-circle" class="size-5 flex-shrink-0"></i>
+          <span class="font-medium"><?php echo htmlspecialchars($error_message); ?></span>
+        </div>
+      <?php endif; ?>
       
       <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 md:gap-8">
         
@@ -228,18 +327,25 @@
               <p class="text-sm text-secondary">Update your shop details and public description.</p>
             </div>
 
+            <form method="POST" action="">
             <div class="p-6 md:p-8 space-y-8">
               <!-- Shop Name -->
               <div>
                 <label for="inputShopName" class="form-label">Shop Name <span class="text-error">*</span></label>
-                <input type="text" id="inputShopName" class="form-input" value="Blyad Store" placeholder="Enter your shop name">
+                <input type="text" id="inputShopName" name="shop_name" class="form-input" value="<?php echo htmlspecialchars($seller['name']); ?>" placeholder="Enter your shop name" required>
               </div>
 
 
               <!-- Email -->
               <div>
                 <label for="inputEmail" class="form-label">Email <span class="text-error">*</span></label>
-                <input type="email" id="inputEmail" class="form-input" value="blyad.store@example.com" placeholder="Enter your email">
+                <input type="email" id="inputEmail" name="email" class="form-input" value="<?php echo htmlspecialchars($seller['email']); ?>" placeholder="Enter your email" required>
+              </div>
+
+              <!-- Phone Number -->
+              <div>
+                <label for="inputPhone" class="form-label">Phone Number</label>
+                <input type="tel" id="inputPhone" name="phone" class="form-input" value="<?php echo htmlspecialchars($seller['phone'] ?? ''); ?>" placeholder="+62 813 1234 5678">
               </div>
 
               <!-- Operational Hour -->
@@ -249,31 +355,23 @@
                 <div>
                   <label for="inputOpeningHour" class="form-label">Opening Hour <span class="text-error">*</span></label>
                   <div class="relative">
-                    <input type="time" id="inputOpeningHour" class="form-input pr-10" value="08:00">
+                    <input type="time" id="inputOpeningHour" name="opening_hour" class="form-input pr-10" value="<?php echo htmlspecialchars($seller['opening_hour'] ?? '08:00'); ?>" required>
                   </div>
                 </div>
                 <div>
                   <label for="inputClosingHour" class="form-label">Closing Hour <span class="text-error">*</span></label>
                   <div class="relative">
-                    <input type="time" id="inputClosingHour" class="form-input pr-10" value="21:00">
+                    <input type="time" id="inputClosingHour" name="closing_hour" class="form-input pr-10" value="<?php echo htmlspecialchars($seller['closing_hour'] ?? '21:00'); ?>" required>
                   </div>
                 </div>
               </div>
 
-              <!-- Description -->
+              <!-- Address -->
+
               <div>
-                <label for="inputDescription" class="form-label">Public Description</label>
-                <textarea id="inputDescription" rows="4" class="form-input resize-none" placeholder="Tell customers about your shop, what you sell, and your mission..."></textarea>
-                <p class="text-xs text-secondary mt-2 text-right">Maksimum 500 characters</p>
-
-
-                <!-- Address -->
-
                 <label for="inputAddress" class="form-label">Address</label>
-                <textarea id="inputAddress" rows="4" class="form-input resize-none" placeholder="Tell your address"></textarea>
+                <textarea id="inputAddress" name="address" rows="4" class="form-input resize-none" placeholder="Tell your address"><?php echo htmlspecialchars($seller['address'] ?? ''); ?></textarea>
                 <p class="text-xs text-secondary mt-2 text-right">Maksimum 500 characters</p>
-
-
               </div>
             </div>
 
@@ -286,20 +384,21 @@
               <div class="space-y-6 max-w-xl">
                 <!-- Current Password -->
                 <div>
-                  <label for="inputCurrentPassword" class="form-label">Current Password</label>
+                  <label for="inputCurrentPassword" class="form-label">Current Password (Optional)</label>
                   <div class="relative">
                     <input type="password" id="inputCurrentPassword" class="form-input pr-10" placeholder="••••••••">
                     <button type="button" class="absolute right-3 top-1/2 -translate-y-1/2 text-secondary hover:text-foreground cursor-pointer" onclick="togglePassword('inputCurrentPassword', this)">
                       <i data-lucide="eye" class="size-5"></i>
                     </button>
                   </div>
+                  <p class="text-xs text-secondary mt-2">Leave empty to keep current password</p>
                 </div>
 
                 <!-- New Password -->
                 <div>
                   <label for="inputNewPassword" class="form-label">New Password</label>
                   <div class="relative mb-2">
-                    <input type="password" id="inputNewPassword" class="form-input pr-10" placeholder="Create a new password" oninput="checkPasswordStrength(this.value)">
+                    <input type="password" id="inputNewPassword" name="new_password" class="form-input pr-10" placeholder="Create a new password" oninput="checkPasswordStrength(this.value)">
                     <button type="button" class="absolute right-3 top-1/2 -translate-y-1/2 text-secondary hover:text-foreground cursor-pointer" onclick="togglePassword('inputNewPassword', this)">
                       <i data-lucide="eye" class="size-5"></i>
                     </button>
@@ -320,14 +419,14 @@
                       <div id="strengthBar4" class="h-full w-full bg-transparent transition-colors duration-300"></div>
                     </div>
                   </div>
-                  <p id="strengthText" class="text-xs text-secondary font-medium">Password must be atleast 8 characters</p>
+                  <p id="strengthText" class="text-xs text-secondary font-medium">Password must be at least 6 characters</p>
                 </div>
 
                 <!-- Confirm Password -->
                 <div>
                   <label for="inputConfirmPassword" class="form-label">Confirm New Password</label>
                   <div class="relative">
-                    <input type="password" id="inputConfirmPassword" class="form-input pr-10" placeholder="Confirm your new password">
+                    <input type="password" id="inputConfirmPassword" name="confirm_password" class="form-input pr-10" placeholder="Confirm your new password">
                     <button type="button" class="absolute right-3 top-1/2 -translate-y-1/2 text-secondary hover:text-foreground cursor-pointer" onclick="togglePassword('inputConfirmPassword', this)">
                       <i data-lucide="eye" class="size-5"></i>
                     </button>
@@ -338,14 +437,16 @@
 
             <!-- Action Footer -->
             <div class="p-6 md:p-8 border-t border-border flex items-center justify-end gap-4 bg-white">
-              <button type="button" class="px-6 py-3 rounded-xl font-semibold text-secondary hover:bg-muted transition-colors cursor-pointer">
-                Cancel
+              <button type="reset" class="px-6 py-3 rounded-xl font-semibold text-secondary hover:bg-muted transition-colors cursor-pointer">
+                Reset
               </button>
-              <button type="button" onclick="saveProfile()" class="px-8 py-3 rounded-xl font-semibold bg-primary text-white hover:bg-primary-hover shadow-lg shadow-primary/20 transition-all cursor-pointer flex items-center gap-2">
+              <button type="submit" id="btnSubmit" class="px-8 py-3 rounded-xl font-semibold bg-primary text-white hover:bg-primary-hover shadow-lg shadow-primary/20 transition-all cursor-pointer flex items-center gap-2">
                 <i data-lucide="save" class="size-5"></i>
                 Save Changes
               </button>
             </div>
+
+            </form>
 
           </div>
         </div>
@@ -384,6 +485,70 @@
       reader.readAsDataURL(file);
     }
   }
+
+  // Form Submission Validation
+  document.querySelector('form').addEventListener('submit', function(e) {
+    const shopName = document.getElementById('inputShopName').value.trim();
+    const email = document.getElementById('inputEmail').value.trim();
+    const openingHour = document.getElementById('inputOpeningHour').value.trim();
+    const closingHour = document.getElementById('inputClosingHour').value.trim();
+    const newPassword = document.getElementById('inputNewPassword').value.trim();
+    const confirmPassword = document.getElementById('inputConfirmPassword').value.trim();
+
+    // Validasi form
+    if (!shopName) {
+      e.preventDefault();
+      showToast('Shop Name tidak boleh kosong!', 'error');
+      return false;
+    }
+
+    if (!email) {
+      e.preventDefault();
+      showToast('Email tidak boleh kosong!', 'error');
+      return false;
+    }
+
+    // Validasi email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      e.preventDefault();
+      showToast('Format email tidak valid!', 'error');
+      return false;
+    }
+
+    if (!openingHour) {
+      e.preventDefault();
+      showToast('Opening Hour tidak boleh kosong!', 'error');
+      return false;
+    }
+
+    if (!closingHour) {
+      e.preventDefault();
+      showToast('Closing Hour tidak boleh kosong!', 'error');
+      return false;
+    }
+
+    // Jika password baru diisi, harus cocok dengan konfirmasi
+    if (newPassword && newPassword !== confirmPassword) {
+      e.preventDefault();
+      showToast('Password baru dan konfirmasi password tidak sama!', 'error');
+      return false;
+    }
+
+    // Jika password baru diisi, harus minimal 6 karakter
+    if (newPassword && newPassword.length < 6) {
+      e.preventDefault();
+      showToast('Password minimal 6 karakter!', 'error');
+      return false;
+    }
+
+    // Show loading state
+    const btn = document.getElementById('btnSubmit');
+    const originalText = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = `<i data-lucide="loader-2" class="size-5 animate-spin"></i><span>Saving...</span>`;
+    lucide.createIcons();
+  });
 
   // Password Visibility Toggle
   function togglePassword(inputId, btn) {
@@ -427,7 +592,7 @@
       return;
     }
 
-    if (password.length >= 8) strength += 1;
+    if (password.length >= 6) strength += 1;
     if (password.match(/(?=.*[A-Z])/)) strength += 1;
     if (password.match(/(?=.*[0-9])/)) strength += 1;
     if (password.match(/(?=.*[!@#\$%\^&\*])/)) strength += 1;
@@ -458,36 +623,6 @@
     }
   }
 
-  // Save Profile Action
-  function saveProfile() {
-    const shopName = document.getElementById('inputShopName').value;
-    if (!shopName.trim()) {
-      showToast('Shop Name is required', 'error');
-      document.getElementById('inputShopName').focus();
-      return;
-    }
-    
-    // Simulate API call
-    const btn = document.querySelector('button[onclick="saveProfile()"]');
-    const originalContent = btn.innerHTML;
-    btn.innerHTML = '<i data-lucide="loader-2" class="size-5 animate-spin"></i> Saving...';
-    btn.disabled = true;
-    lucide.createIcons();
-
-    setTimeout(() => {
-      btn.innerHTML = originalContent;
-      btn.disabled = false;
-      lucide.createIcons();
-      showToast('Profile updated successfully!', 'success');
-      
-      // Clear password fields after save
-      document.getElementById('inputCurrentPassword').value = '';
-      document.getElementById('inputNewPassword').value = '';
-      document.getElementById('inputConfirmPassword').value = '';
-      checkPasswordStrength('');
-    }, 1000);
-  }
-
   // Toast Notification System
   function showToast(msg, type = 'success') {
     document.getElementById('toast')?.remove();
@@ -495,7 +630,7 @@
     const toast = document.createElement('div');
     toast.id = 'toast';
     
-    const bgClass = type === 'success' ? 'bg-foreground' : 'bg-error';
+    const bgClass = type === 'success' ? 'bg-success' : 'bg-error';
     const icon = type === 'success' ? 'check-circle' : 'alert-circle';
     
     toast.className = `fixed bottom-6 right-6 ${bgClass} text-white px-5 py-4 rounded-xl shadow-2xl z-50 flex items-center gap-3 transition-all duration-300 opacity-0 translate-y-4`;
