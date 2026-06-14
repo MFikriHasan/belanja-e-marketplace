@@ -28,6 +28,18 @@ $exec = $koneksi->execute_query($sqlS);
 
 $sellers = $exec->fetch_all(MYSQLI_ASSOC);
 
+// most picked products
+
+$sqlN = "SELECT p.*, SUM(td.qty) as total_terjual 
+         FROM product p
+         JOIN transaction_det td ON p.id = td.product_id
+         GROUP BY p.id
+         ORDER BY total_terjual DESC 
+         LIMIT 5";
+
+$exec = $koneksi->execute_query($sqlN);
+
+$most_picked = $exec->fetch_all(MYSQLI_ASSOC);
 ?>
 
 
@@ -119,123 +131,34 @@ $sellers = $exec->fetch_all(MYSQLI_ASSOC);
     <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-5">
       
       <!-- Product 1 -->
-      <div class="bg-white rounded-2xl border border-border overflow-hidden hover:shadow-lg hover:border-primary/30 transition-all cursor-pointer group flex flex-col" onclick="viewProduct('p1')">
-        <div class="aspect-square bg-muted relative overflow-hidden">
-          <img src="https://images.unsplash.com/photo-1618366712010-f4ae9c647dcb?w=400&h=400&fit=crop" alt="Headphones" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
-          <div class="absolute top-2 left-2 bg-primary text-white text-[10px] font-bold px-2 py-1 rounded flex items-center gap-1 shadow-sm">
-            <i data-lucide="check-circle-2" class="h-3 w-3"></i> Official
-          </div>
-        </div>
-        <div class="p-3 sm:p-4 flex flex-col flex-1">
-          <h3 class="text-sm font-medium line-clamp-2 mb-1 group-hover:text-primary transition-colors">Sony WH-1000XM5 Wireless Noise Cancelling Headphones</h3>
-          <div class="mt-auto">
-            <p class="text-lg font-bold text-primary mb-2">$298.00</p>
-            <div class="flex items-center justify-between">
-              <div class="flex items-center gap-1 text-xs text-secondary">
-                <i data-lucide="star" class="h-3 w-3 fill-warning text-warning"></i>
-                <span class="font-medium text-foreground">4.9</span>
-                <span class="mx-0.5">•</span>
-                <span>1.2k sold</span>
+       <?php foreach ($most_picked as $row): ?>
+        <a href="/product_detail.php?id=<?= $row['id'] ?>">
+          <div class="bg-white rounded-2xl border border-border overflow-hidden hover:shadow-lg hover:border-primary/30 transition-all cursor-pointer group flex flex-col" onclick="viewProduct('p1')">
+            <div class="aspect-square bg-muted relative overflow-hidden">
+              <img src="https://images.unsplash.com/photo-1618366712010-f4ae9c647dcb?w=400&h=400&fit=crop" alt="Headphones" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
+              <div class="absolute top-2 left-2 bg-primary text-white text-[10px] font-bold px-2 py-1 rounded flex items-center gap-1 shadow-sm">
+                <i data-lucide="check-circle-2" class="h-3 w-3"></i> Official
+              </div>
+            </div>
+            <div class="p-3 sm:p-4 flex flex-col flex-1">
+              <h3 class="text-sm font-medium line-clamp-2 mb-1 group-hover:text-primary transition-colors"><?= $row['name'] ?></h3>
+              <div class="mt-auto">
+                <p class="text-lg font-bold text-primary mb-2">$<?= $row['price'] ?></p>
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center gap-1 text-xs text-secondary">
+                    <i data-lucide="star" class="h-3 w-3 fill-warning text-warning"></i>
+                    <span class="font-medium text-foreground">4.9</span>
+                    <span class="mx-0.5">•</span>
+                    <span><?= $row['total_terjual'] ?> Sold</span>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      </div>
-
-      <!-- Product 2 -->
-      <div class="bg-white rounded-2xl border border-border overflow-hidden hover:shadow-lg hover:border-primary/30 transition-all cursor-pointer group flex flex-col" onclick="viewProduct('p2')">
-        <div class="aspect-square bg-muted relative overflow-hidden">
-          <img src="https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=400&h=400&fit=crop" alt="Sneakers" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
-          <div class="absolute top-2 left-2 bg-primary text-white text-[10px] font-bold px-2 py-1 rounded flex items-center gap-1 shadow-sm">
-            <i data-lucide="check-circle-2" class="h-3 w-3"></i> Official
-          </div>
-          <div class="absolute top-2 right-2 bg-red-500 text-white text-[10px] font-bold px-2 py-1 rounded shadow-sm">-20%</div>
-        </div>
-        <div class="p-3 sm:p-4 flex flex-col flex-1">
-          <h3 class="text-sm font-medium line-clamp-2 mb-1 group-hover:text-primary transition-colors">Nike Air Max 270 React Running Shoes</h3>
-          <div class="mt-auto">
-            <div class="flex items-baseline gap-2 mb-2">
-              <p class="text-lg font-bold text-primary">$120.00</p>
-              <p class="text-xs text-secondary line-through">$150.00</p>
-            </div>
-            <div class="flex items-center justify-between">
-              <div class="flex items-center gap-1 text-xs text-secondary">
-                <i data-lucide="star" class="h-3 w-3 fill-warning text-warning"></i>
-                <span class="font-medium text-foreground">4.7</span>
-                <span class="mx-0.5">•</span>
-                <span>850 sold</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Product 3 -->
-      <div class="bg-white rounded-2xl border border-border overflow-hidden hover:shadow-lg hover:border-primary/30 transition-all cursor-pointer group flex flex-col" onclick="viewProduct('p3')">
-        <div class="aspect-square bg-muted relative overflow-hidden">
-          <img src="https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400&h=400&fit=crop" alt="Watch" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
-        </div>
-        <div class="p-3 sm:p-4 flex flex-col flex-1">
-          <h3 class="text-sm font-medium line-clamp-2 mb-1 group-hover:text-primary transition-colors">Minimalist Smart Watch with Heart Rate Monitor</h3>
-          <div class="mt-auto">
-            <p class="text-lg font-bold text-primary mb-2">$89.99</p>
-            <div class="flex items-center justify-between">
-              <div class="flex items-center gap-1 text-xs text-secondary">
-                <i data-lucide="star" class="h-3 w-3 fill-warning text-warning"></i>
-                <span class="font-medium text-foreground">4.5</span>
-                <span class="mx-0.5">•</span>
-                <span>420 sold</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Product 4 -->
-      <div class="bg-white rounded-2xl border border-border overflow-hidden hover:shadow-lg hover:border-primary/30 transition-all cursor-pointer group flex flex-col" onclick="viewProduct('p4')">
-        <div class="aspect-square bg-muted relative overflow-hidden">
-          <img src="https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&h=400&fit=crop" alt="Headphones" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
-          <div class="absolute top-2 left-2 bg-primary text-white text-[10px] font-bold px-2 py-1 rounded flex items-center gap-1 shadow-sm">
-            <i data-lucide="check-circle-2" class="h-3 w-3"></i> Official
-          </div>
-        </div>
-        <div class="p-3 sm:p-4 flex flex-col flex-1">
-          <h3 class="text-sm font-medium line-clamp-2 mb-1 group-hover:text-primary transition-colors">JBL Tune 710BT Wireless Over-Ear Headphones</h3>
-          <div class="mt-auto">
-            <p class="text-lg font-bold text-primary mb-2">$65.00</p>
-            <div class="flex items-center justify-between">
-              <div class="flex items-center gap-1 text-xs text-secondary">
-                <i data-lucide="star" class="h-3 w-3 fill-warning text-warning"></i>
-                <span class="font-medium text-foreground">4.6</span>
-                <span class="mx-0.5">•</span>
-                <span>2.1k sold</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Product 5 (Hidden on mobile/tablet to maintain grid, visible on lg) -->
-      <div class="hidden lg:flex bg-white rounded-2xl border border-border overflow-hidden hover:shadow-lg hover:border-primary/30 transition-all cursor-pointer group flex-col" onclick="viewProduct('p5')">
-        <div class="aspect-square bg-muted relative overflow-hidden">
-          <img src="https://images.unsplash.com/photo-1585386959984-a4155224a1ad?w=400&h=400&fit=crop" alt="Perfume" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
-        </div>
-        <div class="p-3 sm:p-4 flex flex-col flex-1">
-          <h3 class="text-sm font-medium line-clamp-2 mb-1 group-hover:text-primary transition-colors">Luxury Eau De Parfum 100ml Natural Spray</h3>
-          <div class="mt-auto">
-            <p class="text-lg font-bold text-primary mb-2">$145.00</p>
-            <div class="flex items-center justify-between">
-              <div class="flex items-center gap-1 text-xs text-secondary">
-                <i data-lucide="star" class="h-3 w-3 fill-warning text-warning"></i>
-                <span class="font-medium text-foreground">4.8</span>
-                <span class="mx-0.5">•</span>
-                <span>310 sold</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
+        </a>
+        <?php endforeach; ?>
+        
+  
     </div>
     <button class="w-full mt-4 py-3 rounded-xl border border-border text-sm font-medium sm:hidden hover:bg-muted transition-colors">See All Products</button>
   </section>
