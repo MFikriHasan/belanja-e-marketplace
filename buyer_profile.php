@@ -1,3 +1,91 @@
+<?php
+
+
+// Include koneksi database
+require 'koneksi.php';
+include 'login_check.php';
+
+// Redirect ke login jika tidak ada session
+if (!isset($_SESSION['buyer_id'])) {
+    header("Location: index.php");
+    exit();
+}
+
+$buyer_id = $_SESSION['buyer_id'];
+$success_message = '';
+$error_message = '';
+$buyer = array();
+
+// Ambil data buyer dari database
+$query = "SELECT id, name, email, phone, birth, address FROM buyer WHERE id = ?";
+$stmt = $koneksi->prepare($query);
+$stmt->bind_param('i', $buyer_id);
+$stmt->execute();
+$result = $stmt->get_result();
+
+if ($result->num_rows > 0) {
+    $buyer = $result->fetch_assoc();
+} else {
+    header("Location: index.php");
+    exit();
+}
+
+// Handle POST request untuk update profil
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $name = trim($_POST['full_name'] ?? '');
+    $email = trim($_POST['email'] ?? '');
+    $phone = trim($_POST['phone'] ?? '');
+    $date_of_birth = trim($_POST['date_of_birth'] ?? '');
+    $address = trim($_POST['address'] ?? '');
+    $new_password = trim($_POST['new_password'] ?? '');
+    $confirm_password = trim($_POST['confirm_password'] ?? '');
+
+    // Validasi input
+    if (empty($name) || empty($email)) {
+        $error_message = 'Full Name dan Email tidak boleh kosong!';
+    } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        $error_message = 'Format email tidak valid!';
+    } elseif (!empty($new_password) && $new_password !== $confirm_password) {
+        $error_message = 'Password baru dan konfirmasi password tidak sama!';
+    } elseif (!empty($new_password) && strlen($new_password) < 6) {
+        $error_message = 'Password minimal 6 karakter!';
+    } else {
+        // Jika password baru diisi, hash password
+        if (!empty($new_password)) {
+            $hashed_password = password_hash($new_password, PASSWORD_DEFAULT);
+            $update_query = "UPDATE buyer SET name = ?, email = ?, phone = ?, date_of_birth = ?, address = ?, password = ? WHERE id = ?";
+            $update_stmt = $koneksi->prepare($update_query);
+            $update_stmt->bind_param('ssssssi', $name, $email, $phone, $date_of_birth, $address, $hashed_password, $buyer_id);
+        } else {
+            // Jika password kosong, jangan update password
+            $update_query = "UPDATE buyer SET name = ?, email = ?, phone = ?, date_of_birth = ?, address = ? WHERE id = ?";
+            $update_stmt = $koneksi->prepare($update_query);
+            $update_stmt->bind_param('sssssi', $name, $email, $phone, $date_of_birth, $address, $buyer_id);
+        }
+
+        if ($update_stmt->execute()) {
+            // Update session
+            $_SESSION['buyer_name'] = $name;
+            $_SESSION['buyer_email'] = $email;
+
+            // Update data buyer untuk ditampilkan
+            $buyer['name'] = $name;
+            $buyer['email'] = $email;
+            $buyer['phone'] = $phone;
+            $buyer['birth'] = $date_of_birth;
+            $buyer['address'] = $address;
+
+            $success_message = 'Profil berhasil diperbarui!';
+        } else {
+            $error_message = 'Gagal mengupdate profil. Silakan coba lagi.';
+        }
+        $update_stmt->close();
+    }
+}
+
+$stmt->close();
+?>
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -66,6 +154,21 @@
       </div>
     </div>
 
+    <!-- Alert Messages -->
+    <?php if (!empty($success_message)): ?>
+      <div class="mb-6 p-4 rounded-2xl bg-success/10 border border-success text-success flex items-center gap-3">
+        <i data-lucide="check-circle" class="size-5 flex-shrink-0"></i>
+        <span class="font-medium"><?php echo htmlspecialchars($success_message); ?></span>
+      </div>
+    <?php endif; ?>
+
+    <?php if (!empty($error_message)): ?>
+      <div class="mb-6 p-4 rounded-2xl bg-error/10 border border-error text-error flex items-center gap-3">
+        <i data-lucide="alert-circle" class="size-5 flex-shrink-0"></i>
+        <span class="font-medium"><?php echo htmlspecialchars($error_message); ?></span>
+      </div>
+    <?php endif; ?>
+
     <!-- Two Column Layout -->
     <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 md:gap-8">
       
@@ -94,8 +197,8 @@
             <input type="file" id="inputAvatar" class="hidden" accept="image/*">
           </div>
 
-          <h2 class="font-bold text-xl text-foreground mb-1">Blyad Bomboclad</h2>
-          <p class="text-secondary text-sm mb-5">blyad.bomboclad@example.com</p>
+          <h2 class="font-bold text-xl text-foreground mb-1"><?php echo htmlspecialchars($buyer['name'] ?? 'User'); ?></h2>
+          <p class="text-secondary text-sm mb-5"><?php echo htmlspecialchars($buyer['email'] ?? ''); ?></p>
           
           <div class="w-full flex flex-col gap-3">
             <div class="flex items-center justify-between p-3 rounded-2xl bg-card-grey border border-border">
@@ -143,7 +246,7 @@
       <div class="lg:col-span-8">
         <div class="bg-white rounded-3xl border border-border overflow-hidden shadow-sm">
           
-          <form id="profileForm" onsubmit="handleProfileUpdate(event)">
+          <form id="profileForm" method="POST" action="">
             
             <!-- Personal Info Section -->
             <div class="p-6 md:p-8 border-b border-border">
@@ -156,10 +259,18 @@
               
               <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div class="space-y-2">
+                  <label for="inputUserId" class="text-sm font-medium text-foreground ml-1">User ID</label>
+                  <div class="relative">
+                    <i data-lucide="hash" class="absolute left-4 top-1/2 -translate-y-1/2 size-5 text-secondary pointer-events-none"></i>
+                    <input type="text" id="inputUserId" value="<?php echo htmlspecialchars($buyer['id']); ?>" class="w-full pl-11 pr-4 py-3.5 rounded-2xl border border-border bg-card-grey focus:bg-card-grey outline-none text-sm font-medium" readonly style="cursor: not-allowed;">
+                  </div>
+                </div>
+
+                <div class="space-y-2">
                   <label for="inputFullName" class="text-sm font-medium text-foreground ml-1">Full Name <span class="text-error">*</span></label>
                   <div class="relative">
                     <i data-lucide="user" class="absolute left-4 top-1/2 -translate-y-1/2 size-5 text-secondary pointer-events-none"></i>
-                    <input type="text" id="inputFullName" value="Blyad Bomboclad" class="w-full pl-11 pr-4 py-3.5 rounded-2xl border border-border bg-card-grey focus:bg-white focus:border-primary focus:ring-4 focus:ring-primary/10 outline-none transition-all text-sm font-medium" required>
+                    <input type="text" id="inputFullName" name="full_name" value="<?php echo htmlspecialchars($buyer['name']); ?>" class="w-full pl-11 pr-4 py-3.5 rounded-2xl border border-border bg-card-grey focus:bg-white focus:border-primary focus:ring-4 focus:ring-primary/10 outline-none transition-all text-sm font-medium" required>
                   </div>
                 </div>
                 
@@ -167,7 +278,7 @@
                   <label for="inputEmail" class="text-sm font-medium text-foreground ml-1">Email Address <span class="text-error">*</span></label>
                   <div class="relative">
                     <i data-lucide="mail" class="absolute left-4 top-1/2 -translate-y-1/2 size-5 text-secondary pointer-events-none"></i>
-                    <input type="email" id="inputEmail" value="blyad.bomboclad@example.com" class="w-full pl-11 pr-4 py-3.5 rounded-2xl border border-border bg-card-grey focus:bg-white focus:border-primary focus:ring-4 focus:ring-primary/10 outline-none transition-all text-sm font-medium" required>
+                    <input type="email" id="inputEmail" name="email" value="<?php echo htmlspecialchars($buyer['email']); ?>" class="w-full pl-11 pr-4 py-3.5 rounded-2xl border border-border bg-card-grey focus:bg-white focus:border-primary focus:ring-4 focus:ring-primary/10 outline-none transition-all text-sm font-medium" required>
                   </div>
                 </div>
                 
@@ -175,7 +286,7 @@
                   <label for="inputPhone" class="text-sm font-medium text-foreground ml-1">Phone Number</label>
                   <div class="relative">
                     <i data-lucide="phone" class="absolute left-4 top-1/2 -translate-y-1/2 size-5 text-secondary pointer-events-none"></i>
-                    <input type="tel" id="inputPhone" class="w-full pl-11 pr-4 py-3.5 rounded-2xl border border-border bg-card-grey focus:bg-white focus:border-primary focus:ring-4 focus:ring-primary/10 outline-none transition-all text-sm font-medium" placeholder="+62 813 1234 5678">
+                    <input type="tel" id="inputPhone" name="phone" value="<?php echo htmlspecialchars($buyer['phone'] ?? ''); ?>" class="w-full pl-11 pr-4 py-3.5 rounded-2xl border border-border bg-card-grey focus:bg-white focus:border-primary focus:ring-4 focus:ring-primary/10 outline-none transition-all text-sm font-medium" placeholder="+62 813 1234 5678">
                   </div>
                 </div>
 
@@ -183,7 +294,7 @@
                   <label for="inputDob" class="text-sm font-medium text-foreground ml-1">Date of Birth</label>
                   <div class="relative">
                     <i data-lucide="calendar" class="absolute left-4 top-1/2 -translate-y-1/2 size-5 text-secondary pointer-events-none"></i>
-                    <input type="date" id="inputDob" class="w-full pl-11 pr-4 py-3.5 rounded-2xl border border-border bg-card-grey focus:bg-white focus:border-primary focus:ring-4 focus:ring-primary/10 outline-none transition-all text-sm font-medium text-foreground">
+                    <input type="date" id="inputDob" name="date_of_birth" value="<?php echo htmlspecialchars($buyer['date_of_birth'] ?? ''); ?>" class="w-full pl-11 pr-4 py-3.5 rounded-2xl border border-border bg-card-grey focus:bg-white focus:border-primary focus:ring-4 focus:ring-primary/10 outline-none transition-all text-sm font-medium text-foreground">
                   </div>
                 </div>
 
@@ -191,7 +302,7 @@
                 <div class="md:col-span-2 space-y-2">
                   <label for="inputStreet" class="text-sm font-medium text-foreground ml-1">Street Address</label>
                   <div class="relative">
-                    <textarea name="address" id="inputStreet"  rows="4" class="form-input resize-none w-full px-4 py-3.5 rounded-2xl border border-border bg-card-grey focus:bg-white focus:border-primary focus:ring-4 focus:ring-primary/10 outline-none transition-all text-sm font-medium" placeholder="Enter your shipping address"></textarea>
+                    <textarea name="address" id="inputStreet" rows="4" class="form-input resize-none w-full px-4 py-3.5 rounded-2xl border border-border bg-card-grey focus:bg-white focus:border-primary focus:ring-4 focus:ring-primary/10 outline-none transition-all text-sm font-medium" placeholder="Enter your shipping address"><?php echo htmlspecialchars($buyer['address'] ?? ''); ?></textarea>
                     <p class="text-xs text-secondary mt-2 text-right">Maksimum 500 characters</p>
                   </div>
                 </div>
@@ -210,7 +321,7 @@
               <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 
                 <div class="md:col-span-2 space-y-2">
-                  <label for="inputCurrentPassword" class="text-sm font-medium text-foreground ml-1">Current Password</label>
+                  <label for="inputCurrentPassword" class="text-sm font-medium text-foreground ml-1">Current Password (Optional)</label>
                   <div class="relative">
                     <i data-lucide="key-round" class="absolute left-4 top-1/2 -translate-y-1/2 size-5 text-secondary pointer-events-none"></i>
                     <input type="password" id="inputCurrentPassword" class="w-full pl-11 pr-12 py-3.5 rounded-2xl border border-border bg-card-grey focus:bg-white focus:border-primary focus:ring-4 focus:ring-primary/10 outline-none transition-all text-sm font-medium" placeholder="••••••••">
@@ -218,13 +329,14 @@
                       <i data-lucide="eye" class="size-5"></i>
                     </button>
                   </div>
+                  <p class="text-xs text-secondary">Leave empty to keep current password</p>
                 </div>
 
                 <div class="space-y-2">
                   <label for="inputNewPassword" class="text-sm font-medium text-foreground ml-1">New Password</label>
                   <div class="relative">
                     <i data-lucide="key-round" class="absolute left-4 top-1/2 -translate-y-1/2 size-5 text-secondary pointer-events-none"></i>
-                    <input type="password" id="inputNewPassword" class="w-full pl-11 pr-12 py-3.5 rounded-2xl border border-border bg-card-grey focus:bg-white focus:border-primary focus:ring-4 focus:ring-primary/10 outline-none transition-all text-sm font-medium" placeholder="Create a new password" oninput="checkPasswordStrength(this.value)">
+                    <input type="password" id="inputNewPassword" name="new_password" class="w-full pl-11 pr-12 py-3.5 rounded-2xl border border-border bg-card-grey focus:bg-white focus:border-primary focus:ring-4 focus:ring-primary/10 outline-none transition-all text-sm font-medium" placeholder="Create a new password" oninput="checkPasswordStrength(this.value)">
                     <button type="button" class="absolute right-4 top-1/2 -translate-y-1/2 text-secondary hover:text-foreground cursor-pointer" onclick="togglePassword('inputNewPassword', this)">
                       <i data-lucide="eye" class="size-5"></i>
                     </button>
@@ -245,7 +357,7 @@
                         <div id="strengthBar4" class="h-full w-full bg-transparent transition-colors duration-300"></div>
                       </div>
                     </div>
-                    <p id="strengthText" class="text-xs text-secondary font-medium ml-1">Password must be at least 8 characters</p>
+                    <p id="strengthText" class="text-xs text-secondary font-medium ml-1">Password must be at least 6 characters</p>
                   </div>
                 </div>
 
@@ -253,7 +365,7 @@
                   <label for="inputConfirmPassword" class="text-sm font-medium text-foreground ml-1">Confirm New Password</label>
                   <div class="relative">
                     <i data-lucide="key-round" class="absolute left-4 top-1/2 -translate-y-1/2 size-5 text-secondary pointer-events-none"></i>
-                    <input type="password" id="inputConfirmPassword" class="w-full pl-11 pr-12 py-3.5 rounded-2xl border border-border bg-card-grey focus:bg-white focus:border-primary focus:ring-4 focus:ring-primary/10 outline-none transition-all text-sm font-medium" placeholder="Confirm your new password">
+                    <input type="password" id="inputConfirmPassword" name="confirm_password" class="w-full pl-11 pr-12 py-3.5 rounded-2xl border border-border bg-card-grey focus:bg-white focus:border-primary focus:ring-4 focus:ring-primary/10 outline-none transition-all text-sm font-medium" placeholder="Confirm your new password">
                     <button type="button" class="absolute right-4 top-1/2 -translate-y-1/2 text-secondary hover:text-foreground cursor-pointer" onclick="togglePassword('inputConfirmPassword', this)">
                       <i data-lucide="eye" class="size-5"></i>
                     </button>
@@ -265,8 +377,8 @@
 
             <!-- Form Actions -->
             <div class="p-6 md:p-8 bg-card-grey border-t border-border flex flex-col sm:flex-row items-center justify-end gap-3">
-              <button type="button" class="w-full sm:w-auto px-6 py-3.5 rounded-full font-semibold text-secondary hover:bg-border transition-colors cursor-pointer order-2 sm:order-1">
-                Cancel
+              <button type="reset" class="w-full sm:w-auto px-6 py-3.5 rounded-full font-semibold text-secondary hover:bg-border transition-colors cursor-pointer order-2 sm:order-1">
+                Reset
               </button>
               <button type="submit" id="btnSubmit" class="w-full sm:w-auto px-8 py-3.5 rounded-full font-bold bg-primary text-white hover:bg-primary-hover transition-all shadow-lg shadow-primary/25 cursor-pointer flex items-center justify-center gap-2 order-1 sm:order-2">
                 <span>Save Changes</span>
@@ -387,35 +499,57 @@
     }
   });
 
-  // Form Submission Logic
-  function handleProfileUpdate(e) {
-    e.preventDefault();
-    
+  // Form Submission Validation
+  document.getElementById('profileForm').addEventListener('submit', function(e) {
+    const fullName = document.getElementById('inputFullName').value.trim();
+    const email = document.getElementById('inputEmail').value.trim();
+    const newPassword = document.getElementById('inputNewPassword').value.trim();
+    const confirmPassword = document.getElementById('inputConfirmPassword').value.trim();
+
+    // Validasi form
+    if (!fullName) {
+      e.preventDefault();
+      showToast('Full Name tidak boleh kosong!', 'error');
+      return false;
+    }
+
+    if (!email) {
+      e.preventDefault();
+      showToast('Email tidak boleh kosong!', 'error');
+      return false;
+    }
+
+    // Validasi email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      e.preventDefault();
+      showToast('Format email tidak valid!', 'error');
+      return false;
+    }
+
+    // Jika password baru diisi, harus cocok dengan konfirmasi
+    if (newPassword && newPassword !== confirmPassword) {
+      e.preventDefault();
+      showToast('Password baru dan konfirmasi password tidak sama!', 'error');
+      return false;
+    }
+
+    // Jika password baru diisi, harus minimal 6 karakter
+    if (newPassword && newPassword.length < 6) {
+      e.preventDefault();
+      showToast('Password minimal 6 karakter!', 'error');
+      return false;
+    }
+
+    // Show loading state
     const btn = document.getElementById('btnSubmit');
     const originalText = btn.innerHTML;
-    
-    // Loading state
     btn.disabled = true;
     btn.innerHTML = `<i data-lucide="loader-2" class="size-5 animate-spin"></i><span>Saving...</span>`;
     lucide.createIcons();
-    
-    // Simulate API call
-    setTimeout(() => {
-      // Reset button
-      btn.disabled = false;
-      btn.innerHTML = originalText;
-      lucide.createIcons();
-      
-      // Show success message
-      showToast('Profile updated successfully!', 'success');
-      
-      // Update name in UI if changed
-      const newName = document.getElementById('inputFullName').value;
-      document.querySelector('h2.font-bold.text-xl').textContent = newName;
-      document.querySelector('.group-hover\\:text-primary').textContent = newName;
-      
-    }, 1000);
-  }
+
+    // Form will submit normally after this
+  });
 
   // Password Visibility Toggle
   function togglePassword(inputId, btn) {
@@ -460,7 +594,7 @@
       return;
     }
 
-    if (password.length >= 8) strength += 1;
+    if (password.length >= 6) strength += 1;
     if (password.match(/(?=.*[A-Z])/)) strength += 1;
     if (password.match(/(?=.*[0-9])/)) strength += 1;
     if (password.match(/(?=.*[!@#\$%\^&\*])/)) strength += 1;
