@@ -53,12 +53,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // Jika password baru diisi, hash password
         if (!empty($new_password)) {
             $hashed_password = password_hash($new_password, PASSWORD_DEFAULT);
-            $update_query = "UPDATE buyer SET name = ?, email = ?, phone = ?, date_of_birth = ?, address = ?, password = ? WHERE id = ?";
+            $update_query = "UPDATE buyer SET name = ?, email = ?, phone = ?, birth = ?, address = ?, password = ? WHERE id = ?";
             $update_stmt = $koneksi->prepare($update_query);
             $update_stmt->bind_param('ssssssi', $name, $email, $phone, $date_of_birth, $address, $hashed_password, $buyer_id);
         } else {
             // Jika password kosong, jangan update password
-            $update_query = "UPDATE buyer SET name = ?, email = ?, phone = ?, date_of_birth = ?, address = ? WHERE id = ?";
+            $update_query = "UPDATE buyer SET name = ?, email = ?, phone = ?, birth = ?, address = ? WHERE id = ?";
             $update_stmt = $koneksi->prepare($update_query);
             $update_stmt->bind_param('sssssi', $name, $email, $phone, $date_of_birth, $address, $buyer_id);
         }
@@ -294,7 +294,7 @@ $stmt->close();
                   <label for="inputDob" class="text-sm font-medium text-foreground ml-1">Date of Birth</label>
                   <div class="relative">
                     <i data-lucide="calendar" class="absolute left-4 top-1/2 -translate-y-1/2 size-5 text-secondary pointer-events-none"></i>
-                    <input type="date" id="inputDob" name="date_of_birth" value="<?php echo htmlspecialchars($buyer['date_of_birth'] ?? ''); ?>" class="w-full pl-11 pr-4 py-3.5 rounded-2xl border border-border bg-card-grey focus:bg-white focus:border-primary focus:ring-4 focus:ring-primary/10 outline-none transition-all text-sm font-medium text-foreground">
+                    <input type="date" id="inputDob" name="date_of_birth" value="<?= htmlspecialchars($buyer['birth'] ?? ''); ?>" class="w-full pl-11 pr-4 py-3.5 rounded-2xl border border-border bg-card-grey focus:bg-white focus:border-primary focus:ring-4 focus:ring-primary/10 outline-none transition-all text-sm font-medium text-foreground">
                   </div>
                 </div>
 
