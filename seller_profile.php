@@ -4,11 +4,7 @@
 require 'koneksi.php';
 include 'login_check.php';
 
-// Redirect ke login jika tidak ada session
-if (!isset($_SESSION['seller_id'])) {
-    header("Location: seller_login.php");
-    exit();
-}
+
 
 $seller_id = $_SESSION['seller_id'];
 $success_message = '';
@@ -16,7 +12,7 @@ $error_message = '';
 $seller = array();
 
 // Ambil data seller dari database
-$query = "SELECT id, name, email, phone, address, opening_hour, closing_hour FROM seller WHERE id = ?";
+$query = "SELECT id, name, email, description, address, opening_hour, closing_hour FROM seller WHERE id = ?";
 $stmt = $koneksi->prepare($query);
 $stmt->bind_param('i', $seller_id);
 $stmt->execute();
@@ -33,7 +29,7 @@ if ($result->num_rows > 0) {
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $name = trim($_POST['shop_name'] ?? '');
     $email = trim($_POST['email'] ?? '');
-    $phone = trim($_POST['phone'] ?? '');
+    $description = trim($_POST['description'] ?? '');
     $address = trim($_POST['address'] ?? '');
     $opening_hour = trim($_POST['opening_hour'] ?? '');
     $closing_hour = trim($_POST['closing_hour'] ?? '');
@@ -53,14 +49,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // Jika password baru diisi, hash password
         if (!empty($new_password)) {
             $hashed_password = password_hash($new_password, PASSWORD_DEFAULT);
-            $update_query = "UPDATE seller SET name = ?, email = ?, phone = ?, address = ?, opening_hour = ?, closing_hour = ?, password = ? WHERE id = ?";
+            $update_query = "UPDATE seller SET name = ?, email = ?, description = ?, address = ?, opening_hour = ?, closing_hour = ?, password = ? WHERE id = ?";
             $update_stmt = $koneksi->prepare($update_query);
-            $update_stmt->bind_param('sssssssi', $name, $email, $phone, $address, $opening_hour, $closing_hour, $hashed_password, $seller_id);
+            $update_stmt->bind_param('sssssssi', $name, $email, $description, $address, $opening_hour, $closing_hour, $hashed_password, $seller_id);
         } else {
             // Jika password kosong, jangan update password
-            $update_query = "UPDATE seller SET name = ?, email = ?, phone = ?, address = ?, opening_hour = ?, closing_hour = ? WHERE id = ?";
+            $update_query = "UPDATE seller SET name = ?, email = ?, description = ?, address = ?, opening_hour = ?, closing_hour = ? WHERE id = ?";
             $update_stmt = $koneksi->prepare($update_query);
-            $update_stmt->bind_param('ssssssi', $name, $email, $phone, $address, $opening_hour, $closing_hour, $seller_id);
+            $update_stmt->bind_param('ssssssi', $name, $email, $description, $address, $opening_hour, $closing_hour, $seller_id);
         }
 
         if ($update_stmt->execute()) {
@@ -71,7 +67,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             // Update data seller untuk ditampilkan
             $seller['name'] = $name;
             $seller['email'] = $email;
-            $seller['phone'] = $phone;
+            $seller['description'] = $description;
             $seller['address'] = $address;
             $seller['opening_hour'] = $opening_hour;
             $seller['closing_hour'] = $closing_hour;
@@ -342,10 +338,11 @@ $stmt->close();
                 <input type="email" id="inputEmail" name="email" class="form-input" value="<?php echo htmlspecialchars($seller['email']); ?>" placeholder="Enter your email" required>
               </div>
 
-              <!-- Phone Number -->
+              <!-- Description -->
               <div>
-                <label for="inputPhone" class="form-label">Phone Number</label>
-                <input type="tel" id="inputPhone" name="phone" class="form-input" value="<?php echo htmlspecialchars($seller['phone'] ?? ''); ?>" placeholder="+62 813 1234 5678">
+                <label for="inputDescription" class="form-label">Public Description</label>
+                <textarea id="inputDescription" rows="4" class="form-input resize-none" placeholder="Tell customers about your shop, what you sell, and your mission..." name="description"><?= $seller['description'] ?></textarea>
+                <p class="text-xs text-secondary mt-2 text-right">Maksimum 500 characters</p>
               </div>
 
               <!-- Operational Hour -->
@@ -355,13 +352,13 @@ $stmt->close();
                 <div>
                   <label for="inputOpeningHour" class="form-label">Opening Hour <span class="text-error">*</span></label>
                   <div class="relative">
-                    <input type="time" id="inputOpeningHour" name="opening_hour" class="form-input pr-10" value="<?php echo htmlspecialchars($seller['opening_hour'] ?? '08:00'); ?>" required>
+                    <input type="time" id="inputOpeningHour" name="opening_hour" class="form-input pr-10" value="<?php echo htmlspecialchars($seller['opening_hour'] ?? ''); ?>" required>
                   </div>
                 </div>
                 <div>
                   <label for="inputClosingHour" class="form-label">Closing Hour <span class="text-error">*</span></label>
                   <div class="relative">
-                    <input type="time" id="inputClosingHour" name="closing_hour" class="form-input pr-10" value="<?php echo htmlspecialchars($seller['closing_hour'] ?? '21:00'); ?>" required>
+                    <input type="time" id="inputClosingHour" name="closing_hour" class="form-input pr-10" value="<?php echo htmlspecialchars($seller['closing_hour'] ?? ''); ?>" required>
                   </div>
                 </div>
               </div>

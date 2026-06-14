@@ -5,11 +5,7 @@
 require 'koneksi.php';
 include 'login_check.php';
 
-// Redirect ke login jika tidak ada session
-if (!isset($_SESSION['buyer_id'])) {
-    header("Location: index.php");
-    exit();
-}
+
 
 $buyer_id = $_SESSION['buyer_id'];
 $success_message = '';
