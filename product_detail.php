@@ -25,7 +25,7 @@
       } else {
         
         $stmt = $koneksi->prepare(
-          "SELECT p.name, p.price, cv.color_name, cv.product_image
+          "SELECT p.name, p.price, p.seller_id, cv.color_name, cv.product_image
            FROM product p
            JOIN color_varian cv ON cv.product_id = p.id
            WHERE p.id = ? AND cv.id = ?"
@@ -38,6 +38,7 @@
           $_SESSION['cart'][$key] = [
             'product_id' => $post_product_id,
             'variant_id' => $post_variant_id,
+            'seller_id' => $cart_item['seller_id'],
             'name'       => $cart_item['name'],
             'color'      => $cart_item['color_name'],
             'image'      => $cart_item['product_image'],

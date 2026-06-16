@@ -2,7 +2,67 @@
     require 'koneksi.php';
     include 'login_check.php';
 
+    
 
+    if (empty($_SESSION['cart'])) {
+      header('Location: home.php');
+    }
+
+    
+    
+    if (isset($_POST['checkout'])) {
+      $items = $_SESSION['cart'];
+      $buyer = $_SESSION['buyer_id'];
+
+      
+        $subtotal = 0;
+        foreach ($items as $item) {
+            $subtotal += (int)$item['price'] * (int)$item['qty'];
+        }
+
+
+        $shipping = 15;
+        $discount = 19;
+        $grand_total = ($subtotal + $shipping) - $discount;
+
+        $pre1 = $koneksi->prepare("INSERT INTO transaction (buyer_id, total, status) VALUES (?, ?, 'pending')");
+        $pre1->bind_param("ii", $buyer, $grand_total);
+        $pre1->execute();
+        $transaction_id = $koneksi->insert_id;
+
+        $pre2 = $koneksi->prepare("INSERT INTO transaction_det (transaction_id, product_id, seller_id, qty, subtotal) VALUES (?, ?, ?, ?, ?)");
+        foreach ($items as $item) {
+                $product_id = (int)$item['product_id'];
+                $seller_id  = (int)$item['seller_id'];
+                $qty        = (int)$item['qty'];
+                $subtotal   = (int)$item['price'] * $qty;
+
+              $pre2->bind_param("iiiii", $transaction_id, $product_id, $seller_id, $qty, $subtotal);
+              $pre2->execute();
+        }
+
+        $_SESSION['success'] = 'Payment Successfully!';
+        
+        
+        $_SESSION['cart'] = [];
+        
+        
+        header('Location: history_transaction.php');
+        exit;
+
+    }
+
+    $items = $_SESSION['cart'];
+
+    $subtotal = 0;
+    foreach ($items as $item) {
+        $subtotal += (int)$item['price'] * (int)$item['qty'];
+    }
+    $shipping  = 15;
+    $discount  = 19;
+    $grandtotal     = ($subtotal + $shipping) - $discount;
+    
+    $shipping_address = $_SESSION['buyer_address'];
 ?>
 
 <!DOCTYPE html>
@@ -97,6 +157,29 @@
     <!-- Left Column: Payment Methods -->
     <div class="w-full lg:flex-1 space-y-6">
       
+      <!-- Shipping Address -->
+      <div class="bg-white rounded-2xl border border-border overflow-hidden">
+        <div class="p-5 border-b border-border bg-card-grey/50">
+          <h2 class="font-semibold text-lg flex items-center gap-2">
+            <i data-lucide="map-pinned" class="w-5 h-5 text-primary"></i>
+            Your Shipping address
+          </h2>
+        </div>
+        <div class="p-2">
+          
+          <label class="flex items-center justify-between p-4 rounded-xl hover:bg-card-grey cursor-pointer transition-all group">
+            <div class="flex items-center gap-4">
+              <div class="w-12 h-8 bg-muted rounded flex items-center justify-center border border-border">
+                <i data-lucide="map-pin-house" class="w-4 h-4 text-secondary"></i>
+              </div>
+              <div>
+                <p class="font-medium group-hover:text-primary transition-colors capitalize"><?= $shipping_address ?? 'No shipping address added yet!' ?></p>
+              </div>
+            </div>
+          </label>
+        </div>
+      </div>
+
       <!-- Virtual Accounts -->
       <div class="bg-white rounded-2xl border border-border overflow-hidden">
         <div class="p-5 border-b border-border bg-card-grey/50">
@@ -175,30 +258,7 @@
         </div>
       </div>
 
-      <!-- Credit/Debit Card -->
-      <div class="bg-white rounded-2xl border border-border overflow-hidden">
-        <div class="p-5 border-b border-border bg-card-grey/50">
-          <h2 class="font-semibold text-lg flex items-center gap-2">
-            <i data-lucide="credit-card" class="w-5 h-5 text-primary"></i>
-            Credit / Debit Card
-          </h2>
-        </div>
-        <div class="p-2">
-          <!-- Method 5 -->
-          <label class="flex items-center justify-between p-4 rounded-xl hover:bg-card-grey cursor-pointer transition-all group" data-payment-card="cc-new">
-            <div class="flex items-center gap-4">
-              <div class="w-12 h-8 bg-muted rounded flex items-center justify-center border border-border">
-                <i data-lucide="plus" class="w-4 h-4 text-secondary"></i>
-              </div>
-              <div>
-                <p class="font-medium group-hover:text-primary transition-colors">Add New Card</p>
-                <p class="text-xs text-secondary">Visa, Mastercard, JCB, Amex</p>
-              </div>
-            </div>
-            <input type="radio" name="payment_method" value="cc-new" class="payment-radio" onchange="handlePaymentSelection(this)">
-          </label>
-        </div>
-      </div>
+      
 
     </div>
 
@@ -222,20 +282,22 @@
         <h3 class="font-bold text-lg mb-4">Order Summary</h3>
         
         <!-- Items Preview -->
-        <div class="flex items-center gap-3 mb-4 pb-4 border-b border-border">
-          <img src="https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=100&h=100&fit=crop" class="w-12 h-12 rounded-lg object-cover border border-border">
-          <div class="flex-1 min-w-0">
-            <p class="text-sm font-medium truncate">Premium Wireless Headphones</p>
-            <p class="text-xs text-secondary">Qty: 1</p>
+         <?php foreach ($items as $item): ?>
+          <div class="flex items-center gap-3 mb-4 pb-4 border-b border-border">
+            <img src="<?= $item['image'] ?>" class="w-12 h-12 rounded-lg object-cover border border-border">
+            <div class="flex-1 min-w-0">
+              <p class="text-sm font-medium truncate"><?= $item['name'] ?></p>
+              <p class="text-xs text-secondary">Qty: <?= $item['qty'] ?> | Variant: <?= $item['color'] ?></p>
+            </div>
+            <p class="text-sm font-semibold">$<?= number_format($item['price'], 0, ",", ".") ?></p>
           </div>
-          <p class="text-sm font-semibold">$120.00</p>
-        </div>
+         <?php endforeach; ?>
 
         <!-- Calculations -->
         <div class="space-y-3 text-sm mb-6">
           <div class="flex justify-between text-secondary">
             <span>Subtotal</span>
-            <span class="text-foreground font-medium">$120.00</span>
+            <span class="text-foreground font-medium">$<?= number_format($subtotal, 0, ",", ".") ?></span>
           </div>
           <div class="flex justify-between text-secondary">
             <span>Shipping Estimate</span>
@@ -250,14 +312,16 @@
         <!-- Total -->
         <div class="flex justify-between items-center pt-4 border-t border-border mb-6">
           <span class="font-semibold">Total Amount</span>
-          <span class="text-2xl font-bold text-primary">$116.00</span>
+          <span class="text-2xl font-bold text-primary">$<?= number_format($grandtotal, 0, ",", ".") ?></span>
         </div>
 
         <!-- Action Button -->
-        <button id="btnPayNow" onclick="processPayment()" disabled class="w-full bg-primary text-white rounded-full py-4 font-bold text-lg hover:bg-primary-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2">
-          <i data-lucide="lock" class="w-5 h-5"></i>
-          Pay $136.00
-        </button>
+         <form action="" method="post">
+           <button type="submit" name="checkout" id="btnPayNow" disabled class="w-full bg-primary text-white rounded-full py-4 font-bold text-lg hover:bg-primary-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2">
+             <i data-lucide="lock" class="w-5 h-5"></i>
+             Pay $<?= number_format($grandtotal, 0, ",", ".") ?>
+           </button>
+         </form>
         
         <p class="text-center text-xs text-secondary mt-4 flex items-center justify-center gap-1">
           <i data-lucide="shield-check" class="w-3 h-3"></i>
@@ -298,28 +362,11 @@
   </div>
 </div>
 
-<!-- Processing Modal -->
-<div id="processing-modal" class="fixed inset-0 bg-black/50 z-[100] hidden items-center justify-center p-4 backdrop-blur-sm">
-  <div class="bg-white rounded-3xl p-8 max-w-sm w-full text-center shadow-2xl flex flex-col items-center">
-    <div class="w-16 h-16 border-4 border-muted border-t-primary rounded-full animate-spin mb-6"></div>
-    <h3 class="text-xl font-bold mb-2">Processing Payment</h3>
-    <p class="text-secondary text-sm">Please do not close this window or press back.</p>
-  </div>
-</div>
 
-<!-- Success Modal -->
-<div id="success-modal" class="fixed inset-0 bg-black/50 z-[100] hidden items-center justify-center p-4 backdrop-blur-sm">
-  <div class="bg-white rounded-3xl p-8 max-w-sm w-full text-center shadow-2xl flex flex-col items-center">
-    <div class="w-16 h-16 bg-success/10 rounded-full flex items-center justify-center mb-6">
-      <i data-lucide="check" class="w-8 h-8 text-success"></i>
-    </div>
-    <h3 class="text-xl font-bold mb-2">Payment Successful!</h3>
-    <p class="text-secondary text-sm mb-6">Your order #ORD-9921 has been confirmed.</p>
-    <button onclick="closeSuccessModal()" class="w-full py-3 bg-primary text-white rounded-full font-bold hover:bg-primary-hover transition-colors">View Order Details</button>
-  </div>
-</div>
 
 <script>
+  
+
   // --- Payment Selection Logic ---
   function handlePaymentSelection(radioInput) {
     // Reset all cards styling
@@ -337,11 +384,6 @@
     // Enable Pay Button
     const payBtn = document.getElementById('btnPayNow');
     payBtn.disabled = false;
-    
-    // Optional: Update button text based on method
-    // let methodText = selectedCard.querySelector('.font-medium').textContent;
-    // payBtn.innerHTML = `<i data-lucide="lock" class="w-5 h-5"></i> Pay with ${methodText}`;
-    // lucide.createIcons();
   }
 
   // --- Countdown Timer Logic ---
@@ -368,34 +410,7 @@
   
   setInterval(updateTimer, 1000);
 
-  // --- Payment Processing Logic ---
-  function processPayment() {
-    const processingModal = document.getElementById('processing-modal');
-    const successModal = document.getElementById('success-modal');
-    
-    // Show processing
-    processingModal.classList.remove('hidden');
-    processingModal.classList.add('flex');
-    
-    // Simulate API call delay
-    setTimeout(() => {
-      processingModal.classList.add('hidden');
-      processingModal.classList.remove('flex');
-      
-      successModal.classList.remove('hidden');
-      successModal.classList.add('flex');
-      
-      // Stop timer
-      timeLeft = 0;
-    }, 2500);
-  }
-
-  function closeSuccessModal() {
-    document.getElementById('success-modal').classList.add('hidden');
-    document.getElementById('success-modal').classList.remove('flex');
-    // In a real app, redirect here
-    showToast("Redirecting to order details...", "success");
-  }
+  
 
   // --- Toast Notification ---
   function showToast(msg, type='success') {

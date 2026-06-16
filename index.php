@@ -9,7 +9,7 @@ if (isset($_POST['submit'])) {
     $password = $_POST['password'];
 
     
-    $query = "SELECT id, name, email, password FROM buyer WHERE email = ?";
+    $query = "SELECT id, name, email, password, address FROM buyer WHERE email = ?";
     $pre = $koneksi->prepare($query);
     
     
@@ -30,6 +30,7 @@ if (isset($_POST['submit'])) {
             $_SESSION['buyer_id']   = $buyer['id'];
             $_SESSION['buyer_name'] = $buyer['name'];
             $_SESSION['buyer_email']= $buyer['email'];
+            $_SESSION['buyer_address'] = $buyer['address'];
             $_SESSION['is_login']   = true;
 
            header("Location: /home.php"); 

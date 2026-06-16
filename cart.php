@@ -12,7 +12,7 @@
     $carts = $_SESSION['cart'];
     $total_items = array_sum(array_column($carts, 'qty'));
 
-
+    
 ?>
 
 <!DOCTYPE html>
@@ -325,10 +325,10 @@
             </div>
 
             <!-- Checkout Button -->
-            <button class="w-full py-3.5 px-4 bg-primary text-white rounded-xl font-bold text-base hover:bg-primary-hover hover:shadow-lg hover:shadow-primary/30 transition-all cursor-pointer flex items-center justify-center gap-2 mt-6 group">
+            <a href="payment.php" class="w-full py-3.5 px-4 bg-primary text-white rounded-xl font-bold text-base hover:bg-primary-hover hover:shadow-lg hover:shadow-primary/30 transition-all cursor-pointer flex items-center justify-center gap-2 mt-6 group">
               Proceed to Checkout
               <i data-lucide="arrow-right" class="w-5 h-5 group-hover:translate-x-1 transition-transform"></i>
-            </button>
+            </a>
             
             <p class="text-xs text-center text-text-muted mt-4 flex items-center justify-center gap-1">
               <i data-lucide="shield-check" class="w-4 h-4"></i>
