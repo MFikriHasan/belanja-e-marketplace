@@ -1,6 +1,66 @@
 <?php
     require 'koneksi.php';
     include 'login_check.php';
+
+    $seller_id = $_SESSION['seller_id'];
+    $error = "";
+    $success = "";
+
+    
+    $query_cat = "SELECT * FROM category ORDER BY name ASC";
+    $categories = $koneksi->query($query_cat)->fetch_all(MYSQLI_ASSOC);
+
+    
+    $search = isset($_GET['search']) ? trim($_GET['search']) : '';
+    $filter_cat = isset($_GET['category_id']) ? (int)$_GET['category_id'] : 0;
+
+    
+    $query_prod = "SELECT 
+                    p.id, 
+                    p.name, 
+                    p.price, 
+                    p.description, 
+                    p.category_id,
+                    c.name AS category_name,
+                    IFNULL(SUM(cv.color_stok), 0) AS stock_total,
+                    MIN(cv.product_image) AS product_image,
+                    COUNT(cv.id) AS variant_total
+               FROM product p 
+               LEFT JOIN category c ON p.category_id = c.id
+               LEFT JOIN color_varian cv ON p.id = cv.product_id
+               WHERE p.seller_id = ?";
+
+    
+    if (!empty($search)) {
+        $query_prod .= " AND p.name LIKE ?";
+    }
+    
+    if ($filter_cat > 0) {
+        $query_prod .= " AND p.category_id = ?";
+    }
+    $query_prod .= " GROUP BY p.id, p.name, p.price, p.description, p.category_id, c.name 
+                  ORDER BY p.id DESC";
+
+    
+    $stmt_p = $koneksi->prepare($query_prod);
+
+    if (!empty($search) && $filter_cat > 0) {
+        $search_param = "%$search%";
+        $stmt_p->bind_param("isi", $seller_id, $search_param, $filter_cat);
+    } elseif (!empty($search)) {
+        $search_param = "%$search%";
+        $stmt_p->bind_param("is", $seller_id, $search_param);
+    } elseif ($filter_cat > 0) {
+        $stmt_p->bind_param("ii", $seller_id, $filter_cat);
+    } else {
+        $stmt_p->bind_param("i", $seller_id);
+    }
+
+    $stmt_p->execute();
+    $products = $stmt_p->get_result()->fetch_all(MYSQLI_ASSOC);
+
+
+
 ?>
 
 <!DOCTYPE html>
@@ -157,7 +217,7 @@
   <div class="flex-1 overflow-y-auto p-4 sm:p-8 ms-5">
     
     <!-- Stats Row -->
-    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+    <div class="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-8">
       <div class="bg-white p-5 rounded-2xl border border-border flex items-center gap-4">
         <div class="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
           <i data-lucide="package" class="w-6 h-6 text-primary"></i>
@@ -185,47 +245,95 @@
           <p class="text-2xl font-bold" id="statLowStock">0</p>
         </div>
       </div>
+      <div class="bg-white p-5 rounded-2xl border border-border flex items-center gap-4">
+        <div class="w-12 h-12 rounded-xl bg-error/10 flex items-center justify-center shrink-0">
+          <i data-lucide="circle-x" class="w-6 h-6 text-error"></i>
+        </div>
+        <div>
+          <p class="text-sm text-secondary font-medium">Out of Stock</p>
+          <p class="text-2xl font-bold" id="statLowStock">0</p>
+        </div>
+      </div>
     </div>
 
     <!-- Controls Row -->
     <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-      <div class="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
-        <div class="relative w-full sm:w-64">
-          <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-secondary"></i>
-          <input type="text" id="searchInput" placeholder="Search products..." class="w-full pl-9 pr-4 py-2.5 bg-white border border-border rounded-xl text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all">
+      <form action="management_product.php" method="GET">
+        <div class="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+          <div class="relative w-full sm:w-64">
+            <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-secondary"></i>
+            <input type="text" name="search" value="<?= htmlspecialchars($search) ?>" placeholder="Search products..." class="w-full pl-9 pr-4 py-2.5 bg-white border border-border rounded-xl text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all">
+          </div>
+          <select name="category_id" class="w-full sm:w-40 px-4 py-2.5 bg-white border border-border rounded-xl text-sm focus:outline-none focus:border-primary appearance-none cursor-pointer">
+            <option value="0">All Categories</option>
+            <?php foreach ($categories as $cat): ?>
+              <option value="<?= $cat['id'] ?>" <?= $filter_cat == $cat['id'] ? 'selected' : '' ?>><?= htmlspecialchars($cat['name']) ?></option>
+            <?php endforeach; ?>
+          </select>
+
+          <button type="submit" class="bg-primary hover:bg-primary-hover text-white px-4 py-2 rounded-xl text-sm font-medium transition-colors cursor-pointer">Apply</button>
+          <?php if(!empty($search) || $filter_cat > 0): ?>
+            <a href="management_product.php" class="bg-warning hover:bg-warning-hover text-white px-4 py-2.5 rounded-xl text-sm font-medium transition-colors cursor-pointer inline-flex items-center gap-2">
+              <i data-lucide="funnel-x" class="w-5 h-5"></i>
+              Clear Filter
+            </a>
+          <?php endif; ?>
         </div>
-        <select id="categoryFilter" class="w-full sm:w-40 px-4 py-2.5 bg-white border border-border rounded-xl text-sm focus:outline-none focus:border-primary appearance-none cursor-pointer">
-          <option value="all">All Categories</option>
-          <option value="Electronics">Electronics</option>
-          <option value="Accessories">Accessories</option>
-          <option value="Audio">Audio</option>
-        </select>
-      </div>
+      </form>
+
       <button onclick="openProductModal()" class="w-full sm:w-auto bg-primary hover:bg-primary-hover text-white px-6 py-2.5 rounded-xl font-semibold flex items-center justify-center gap-2 transition-colors">
         <i data-lucide="plus" class="w-5 h-5"></i>
         Add Product
       </button>
     </div>
 
-    <!-- Empty State (Hidden by default) -->
-    <div id="noResults" class="hidden flex flex-col items-center justify-center py-16 bg-white rounded-2xl border border-border text-center px-4">
-      <div class="w-16 h-16 bg-muted rounded-full flex items-center justify-center mb-4">
-        <i data-lucide="package-x" class="w-8 h-8 text-secondary"></i>
+    <!-- Empty State  -->
+     <?php if (empty($products)): ?>
+      <div  class="flex flex-col items-center justify-center py-16 bg-white rounded-2xl border border-border text-center px-4">
+        <div class="w-16 h-16 bg-muted rounded-full flex items-center justify-center mb-4">
+          <i data-lucide="package-x" class="w-8 h-8 text-secondary"></i>
+        </div>
+        <h3 class="text-lg font-bold mb-1">No products found</h3>
+        <p class="text-secondary text-sm mb-4">Try adjusting your search or filters.</p>
+        <a href="management_product.php" class="text-primary font-medium hover:underline">Clear all filters</a>
       </div>
-      <h3 class="text-lg font-bold mb-1">No products found</h3>
-      <p class="text-secondary text-sm mb-4">Try adjusting your search or filters.</p>
-      <button onclick="document.getElementById('searchInput').value=''; document.getElementById('categoryFilter').value='all'; applyFilters();" class="text-primary font-medium hover:underline">Clear all filters</button>
-    </div>
+      <?php else: ?>
+        <!-- Product Grid -->
+        <div id="productsGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+           <?php foreach ($products as $row): ?>
+              <div class="bg-white rounded-2xl border border-border overflow-hidden hover:shadow-lg transition-shadow duration-300 flex flex-col group">
+                <div class="relative aspect-square bg-muted overflow-hidden">
+                  <img src="<?= $path_gambar = !empty($row['product_image']) ? 'storage/image/' . $row['product_image'] : 'https://images.unsplash.com/photo-1618366712010-f4ae9c647dcb?w=400&h=400&fit=crop'; ?>" alt="<?= $row['name'] ?>" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
+                  <div class="absolute top-3 left-3">
+                    <span class="<?= ($row['stock_total'] >= 30) ? 'bg-success/10 text-success px-2.5 py-1 rounded-full text-xs font-semibold border border-success/20' : (($row['stock_total'] >= 10) ? 'bg-warning/10 text-warning px-2.5 py-1 rounded-full text-xs font-semibold border border-warning/20' : 'bg-error/10 text-error px-2.5 py-1 rounded-full text-xs font-semibold border border-error/20') ?>"><?= ($row['stock_total'] >= 30) ? 'In Stock' : (($row['stock_total'] >= 10) ? 'Low Stock' : 'Out of Stock') ?> (<?= $row['stock_total'] ?>)</span>
+                  </div>
+                  <div class="absolute top-3 right-3 flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                    <button onclick="openEditModal(<?= $row['id'] ?>)" class="w-8 h-8 bg-white rounded-full shadow-md flex items-center justify-center text-secondary hover:text-primary hover:bg-muted transition-colors" title="Edit">
+                      <i data-lucide="edit-2" class="w-4 h-4"></i>
+                    </button>
+                    <button onclick="promptDelete(<?= $row['id'] ?>)" class="w-8 h-8 bg-white rounded-full shadow-md flex items-center justify-center text-secondary hover:text-error hover:bg-muted transition-colors" title="Delete">
+                      <i data-lucide="trash-2" class="w-4 h-4"></i>
+                    </button>
+                  </div>
+                </div>
+                <div class="p-4 flex flex-col flex-1">
+                  <p class="text-xs text-secondary font-medium mb-1 uppercase tracking-wider"><?= $row['category_name'] ?></p>
+                  <h3 class="font-semibold text-foreground leading-tight mb-2 line-clamp-2 flex-1 capitalize"><?= $row['name'] ?></h3>
+                  <div class="flex items-end justify-between mt-auto pt-3 border-t border-border/50">
+                    <p class="font-bold text-lg">$<?= number_format($row['price'], 0, ',', '.') ?></p>
+                    <p class="text-xs text-secondary"><?= $row['variant_total'] ?> Variants</p>
+                  </div>
+                </div>
+              </div>
+           <?php endforeach; ?>
+        </div>
+     <?php endif; ?>
 
-    <!-- Product Grid -->
-    <div id="productsGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-      <!-- Cards injected by JS -->
-    </div>
 
   </div>
 </main>
 
-<!-- Product Form Modal (Add/Edit) -->
+<!-- Product Form Modal (Add) -->
 <div id="productModal" class="fixed inset-0 bg-foreground/60 z-[100] hidden flex items-center justify-center p-4 sm:p-6 backdrop-blur-sm opacity-0 transition-opacity duration-300">
   <div class="bg-white rounded-2xl w-full max-w-4xl max-h-[90vh] flex flex-col shadow-2xl transform scale-95 transition-transform duration-300" id="productModalContent">
     
@@ -239,7 +347,7 @@
 
     <!-- Modal Body (Scrollable) -->
     <div class="flex-1 overflow-y-auto p-6 custom-scrollbar">
-      <form id="productForm" class="space-y-8">
+      <form method="post" action="create_product.php" id="productForm" class="space-y-8" enctype="multipart/form-data">
         <input type="hidden" id="inputId">
         
         <!-- Basic Info Section -->
@@ -250,24 +358,24 @@
           <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
             <div class="md:col-span-2">
               <label class="block text-sm font-medium text-secondary mb-1.5">Product Name *</label>
-              <input type="text" id="inputName" required class="w-full px-4 py-2.5 bg-muted border border-border rounded-xl text-sm focus:bg-white focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all" placeholder="e.g. Wireless Noise-Cancelling Headphones">
+              <input type="text" name="product_name" id="inputName" required class="w-full px-4 py-2.5 bg-muted border border-border rounded-xl text-sm focus:bg-white focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all" placeholder="e.g. Wireless Noise-Cancelling Headphones">
             </div>
             <div>
               <label class="block text-sm font-medium text-secondary mb-1.5">Category *</label>
-              <select id="inputCategory" required class="w-full px-4 py-2.5 bg-muted border border-border rounded-xl text-sm focus:bg-white focus:outline-none focus:border-primary appearance-none">
+              <select name="category" id="inputCategory" required class="w-full px-4 py-2.5 bg-muted border border-border rounded-xl text-sm focus:bg-white focus:outline-none focus:border-primary appearance-none">
                 <option value="">Select Category</option>
-                <option value="Electronics">Electronics</option>
-                <option value="Accessories">Accessories</option>
-                <option value="Audio">Audio</option>
+                <?php foreach ($categories as $row): ?>
+                  <option value="<?= $row['id'] ?>"><?= $row['name'] ?></option>
+                <?php endforeach; ?>
               </select>
             </div>
             <div>
               <label class="block text-sm font-medium text-secondary mb-1.5">Base Price ($) *</label>
-              <input type="number" id="inputPrice" step="0.01" required class="w-full px-4 py-2.5 bg-muted border border-border rounded-xl text-sm focus:bg-white focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all" placeholder="0.00">
+              <input type="number" name="price" id="inputPrice" step="0.01" required class="w-full px-4 py-2.5 bg-muted border border-border rounded-xl text-sm focus:bg-white focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all" placeholder="0.00">
             </div>
             <div class="md:col-span-2">
               <label class="block text-sm font-medium text-secondary mb-1.5">Description</label>
-              <textarea id="inputDescription" rows="3" class="w-full px-4 py-2.5 bg-muted border border-border rounded-xl text-sm focus:bg-white focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all resize-none" placeholder="Brief product description..."></textarea>
+              <textarea name="description" id="inputDescription" rows="3" class="w-full px-4 py-2.5 bg-muted border border-border rounded-xl text-sm focus:bg-white focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all resize-none" placeholder="Brief product description..."></textarea>
             </div>
           </div>
         </div>
@@ -280,7 +388,7 @@
             <h3 class="text-sm font-bold text-foreground uppercase tracking-wider flex items-center gap-2">
               <i data-lucide="list" class="w-4 h-4 text-primary"></i> Specifications
             </h3>
-            <button type="button" onclick="addSpecRow()" class="text-sm text-primary font-medium hover:underline flex items-center gap-1">
+            <button type="button" onclick="addSpecRowForInsert()" class="text-sm text-primary font-medium hover:underline flex items-center gap-1">
               <i data-lucide="plus" class="w-4 h-4"></i> Add Spec
             </button>
           </div>
@@ -300,7 +408,7 @@
               </h3>
               <p class="text-xs text-secondary mt-1">Add colors, manage stock, and upload images for each variant.</p>
             </div>
-            <button type="button" onclick="addVariantRow()" class="bg-primary/10 text-primary px-3 py-1.5 rounded-lg text-sm font-semibold hover:bg-primary/20 transition-colors flex items-center gap-1">
+            <button type="button" onclick="addVariantRowForInsert()" class="bg-primary/10 text-primary px-3 py-1.5 rounded-lg text-sm font-semibold hover:bg-primary/20 transition-colors flex items-center gap-1">
               <i data-lucide="plus" class="w-4 h-4"></i> Add Variant
             </button>
           </div>
@@ -310,16 +418,117 @@
           </div>
         </div>
 
-      </form>
+      
     </div>
 
     <!-- Modal Footer -->
     <div class="px-6 py-4 border-t border-border bg-card-grey rounded-b-2xl flex justify-end gap-3 shrink-0">
       <button type="button" onclick="closeProductModal()" class="px-6 py-2.5 rounded-xl font-medium text-secondary hover:bg-border transition-colors">Cancel</button>
-      <button type="button" onclick="saveProduct()" class="px-6 py-2.5 rounded-xl font-semibold bg-primary text-white hover:bg-primary-hover transition-colors shadow-sm">Save Product</button>
+      <button type="submit" name="save_product" class="px-6 py-2.5 rounded-xl font-semibold bg-primary text-white hover:bg-primary-hover transition-colors shadow-sm">Save Product</button>
+      </form>
     </div>
   </div>
 </div>
+
+<?php foreach ($products as $row): ?>
+  <!-- Product Form Modal (Edit) -->
+  <div id="productModalEditForm" class="fixed inset-0 bg-foreground/60 z-[100] hidden flex items-center justify-center p-4 sm:p-6 backdrop-blur-sm opacity-0 transition-opacity duration-300">
+    <div class="bg-white rounded-2xl w-full max-w-4xl max-h-[90vh] flex flex-col shadow-2xl transform scale-95 transition-transform duration-300" id="productModalContent">
+      
+      <!-- Modal Header -->
+      <div class="flex items-center justify-between px-6 py-4 border-b border-border shrink-0">
+        <h2 class="text-xl font-bold" id="modalTitle">Edit Product</h2>
+        <button onclick="closeEditProductModal()" class="p-2 text-secondary hover:bg-muted rounded-full transition-colors">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <!-- Modal Body (Scrollable) -->
+      <div class="flex-1 overflow-y-auto p-6 custom-scrollbar">
+        <form method="post" action="update_product.php" id="productForm" class="space-y-8" enctype="multipart/form-data">
+          <input type="hidden" id="inputId" value="<?= $row['id'] ?>">
+          
+          <!-- Basic Info Section -->
+          <div>
+            <h3 class="text-sm font-bold text-foreground uppercase tracking-wider mb-4 flex items-center gap-2">
+              <i data-lucide="info" class="w-4 h-4 text-primary"></i> Basic Information
+            </h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+              <div class="md:col-span-2">
+                <label class="block text-sm font-medium text-secondary mb-1.5">Product Name *</label>
+                <input type="text" value="<?= $row['name'] ?>" name="product_name" id="inputName" required class="w-full px-4 py-2.5 bg-muted border border-border rounded-xl text-sm focus:bg-white focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all" placeholder="e.g. Wireless Noise-Cancelling Headphones">
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-secondary mb-1.5">Category *</label>
+                <select name="category" id="inputCategory" required class="w-full px-4 py-2.5 bg-muted border border-border rounded-xl text-sm focus:bg-white focus:outline-none focus:border-primary appearance-none">
+                  <option value="0">Select Category</option>
+                  <?php foreach ($categories as $category): ?>
+                    <option <?= ($category['id'] == $row['category_id']) ? 'selected' : '' ?>  value="<?= $category['id'] ?>"><?= $category['name'] ?></option>
+                  <?php endforeach; ?>
+                </select>
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-secondary mb-1.5">Base Price ($) *</label>
+                <input type="number" value="<?= $row['price'] ?>" name="price" id="inputPrice" step="0.01" required class="w-full px-4 py-2.5 bg-muted border border-border rounded-xl text-sm focus:bg-white focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all" placeholder="0.00">
+              </div>
+              <div class="md:col-span-2">
+                <label class="block text-sm font-medium text-secondary mb-1.5">Description</label>
+                <textarea name="description" id="inputDescription" rows="3" class="w-full px-4 py-2.5 bg-muted border border-border rounded-xl text-sm focus:bg-white focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all resize-none" placeholder="Brief product description..."><?= $row['description'] ?></textarea>
+              </div>
+            </div>
+          </div>
+
+          <hr class="border-border">
+
+          <!-- Specifications Section -->
+          <div>
+            <div class="flex items-center justify-between mb-4">
+              <h3 class="text-sm font-bold text-foreground uppercase tracking-wider flex items-center gap-2">
+                <i data-lucide="list" class="w-4 h-4 text-primary"></i> Specifications
+              </h3>
+              <button type="button" onclick="addSpecRowForUpdate()" class="text-sm text-primary font-medium hover:underline flex items-center gap-1">
+                <i data-lucide="plus" class="w-4 h-4"></i> Add Spec
+              </button>
+            </div>
+            <div id="specsContainer" class="space-y-3">
+              <!-- Spec rows injected here -->
+            </div>
+          </div>
+
+          <hr class="border-border">
+
+          <!-- Variants Section (Colors, Stock, Images) -->
+          <div>
+            <div class="flex items-center justify-between mb-4">
+              <div>
+                <h3 class="text-sm font-bold text-foreground uppercase tracking-wider flex items-center gap-2">
+                  <i data-lucide="layers" class="w-4 h-4 text-primary"></i> Product Variants
+                </h3>
+                <p class="text-xs text-secondary mt-1">Add colors, manage stock, and upload images for each variant.</p>
+              </div>
+              <button type="button" onclick="addVariantRowForUpdate()" class="bg-primary/10 text-primary px-3 py-1.5 rounded-lg text-sm font-semibold hover:bg-primary/20 transition-colors flex items-center gap-1">
+                <i data-lucide="plus" class="w-4 h-4"></i> Add Variant
+              </button>
+            </div>
+            
+            <div id="variantsContainer" class="space-y-4">
+              <!-- Variant rows injected here -->
+            </div>
+          </div>
+
+        
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="px-6 py-4 border-t border-border bg-card-grey rounded-b-2xl flex justify-end gap-3 shrink-0">
+        <button type="button" onclick="closeEditProductModal()" class="px-6 py-2.5 rounded-xl font-medium text-secondary hover:bg-border transition-colors">Cancel</button>
+        <button type="submit" name="save_product" class="px-6 py-2.5 rounded-xl font-semibold bg-primary text-white hover:bg-primary-hover transition-colors shadow-sm">Save Product</button>
+        </form>
+      </div>
+    </div>
+  </div>
+<?php endforeach; ?>
+
 
 <!-- Delete Confirmation Modal -->
 <div id="deleteModal" class="fixed inset-0 bg-foreground/60 z-[110] hidden flex items-center justify-center p-4 backdrop-blur-sm opacity-0 transition-opacity duration-300">
@@ -339,156 +548,17 @@
 
 
 <script>
-// --- Data State ---
-let productsData = {
-  'PROD-001': {
-    id: 'PROD-001',
-    name: 'Sony WH-1000XM5 Wireless Headphones',
-    category: 'Audio',
-    price: 348.00,
-    description: 'Industry leading noise canceling with two processors and 8 microphones.',
-    status: 'active',
-    specs: [{ key: 'Battery Life', value: '30 Hours' }, { key: 'Bluetooth', value: 'v5.2' }],
-    variants: [
-      { color: 'Black', stock: 45, image: 'https://images.unsplash.com/photo-1618366712010-f4ae9c647dcb?w=400&h=400&fit=crop' },
-      { color: 'Silver', stock: 12, image: 'https://images.unsplash.com/photo-1484704849700-f032a568e944?w=400&h=400&fit=crop' }
-    ]
-  },
-  'PROD-002': {
-    id: 'PROD-002',
-    name: 'Logitech MX Master 3S Mouse',
-    category: 'Accessories',
-    price: 99.99,
-    description: 'Advanced wireless mouse with 8K DPI tracking and quiet clicks.',
-    status: 'active',
-    specs: [{ key: 'Sensor', value: 'Darkfield' }, { key: 'Buttons', value: '7' }],
-    variants: [
-      { color: 'Graphite', stock: 8, image: 'https://images.unsplash.com/photo-1527864550417-7fd91fc51a46?w=400&h=400&fit=crop' },
-      { color: 'Pale Grey', stock: 0, image: 'https://images.unsplash.com/photo-1615663245857-ac93bb7c39e7?w=400&h=400&fit=crop' }
-    ]
-  },
-  'PROD-003': {
-    id: 'PROD-003',
-    name: 'Keychron Q1 Pro Mechanical Keyboard',
-    category: 'Accessories',
-    price: 199.00,
-    description: 'QMK/VIA wireless custom mechanical keyboard with full aluminum body.',
-    status: 'active',
-    specs: [{ key: 'Layout', value: '75%' }, { key: 'Switches', value: 'Hot-swappable' }],
-    variants: [
-      { color: 'Carbon Black', stock: 25, image: 'https://images.unsplash.com/photo-1595225476474-87563907a212?w=400&h=400&fit=crop' }
-    ]
-  },
-  'PROD-004': {
-    id: 'PROD-004',
-    name: 'Samsung 34" Odyssey G8 OLED Monitor',
-    category: 'Electronics',
-    price: 1199.99,
-    description: 'Ultra-wide gaming monitor with 0.03ms response time and 175Hz refresh rate.',
-    status: 'active',
-    specs: [{ key: 'Resolution', value: '3440 x 1440' }, { key: 'Panel', value: 'OLED' }],
-    variants: [
-      { color: 'Silver', stock: 5, image: 'https://images.unsplash.com/photo-1527443224154-c4a3942d3acf?w=400&h=400&fit=crop' }
-    ]
-  },
-  'PROD-005': {
-    id: 'PROD-005',
-    name: 'Anker 737 Power Bank (PowerCore 24K)',
-    category: 'Accessories',
-    price: 149.99,
-    description: 'Ultra-powerful two-way fast charging portable charger.',
-    status: 'inactive',
-    specs: [{ key: 'Capacity', value: '24,000mAh' }, { key: 'Output', value: '140W' }],
-    variants: [
-      { color: 'Black', stock: 0, image: 'https://images.unsplash.com/photo-1609091839311-d5365f9ff1c5?w=400&h=400&fit=crop' }
-    ]
-  }
-};
+
 
 let itemToDelete = null;
 
 // --- Initialization ---
 document.addEventListener('DOMContentLoaded', () => {
   lucide.createIcons();
-  renderProducts();
-  updateStats();
-  
-  // Event Listeners for Filters
-  document.getElementById('searchInput').addEventListener('input', applyFilters);
-  document.getElementById('categoryFilter').addEventListener('change', applyFilters);
 });
 
-// --- Rendering ---
-function renderProducts() {
-  const container = document.getElementById('productsGrid');
-  container.innerHTML = '';
-  
-  Object.values(productsData).forEach(product => {
-    // Calculate total stock and get main image
-    const totalStock = product.variants.reduce((sum, v) => sum + (parseInt(v.stock) || 0), 0);
-    const mainImage = product.variants.length > 0 && product.variants[0].image ? product.variants[0].image : 'https://placehold.co/400x400/e2e8f0/64748b?text=No+Image';
-    
-    // Determine status badge
-    let statusHtml = '';
-    if (totalStock === 0) {
-      statusHtml = `<span class="bg-error/10 text-error px-2.5 py-1 rounded-full text-xs font-semibold border border-error/20">Out of Stock</span>`;
-    } else if (totalStock < 10) {
-      statusHtml = `<span class="bg-warning/10 text-warning px-2.5 py-1 rounded-full text-xs font-semibold border border-warning/20">Low Stock (${totalStock})</span>`;
-    } else {
-      statusHtml = `<span class="bg-success/10 text-success px-2.5 py-1 rounded-full text-xs font-semibold border border-success/20">In Stock (${totalStock})</span>`;
-    }
 
-    const card = document.createElement('div');
-    card.className = 'bg-white rounded-2xl border border-border overflow-hidden hover:shadow-lg transition-shadow duration-300 flex flex-col group';
-    card.setAttribute('data-item-id', product.id);
-    card.setAttribute('data-category', product.category);
-    card.setAttribute('data-searchable', `${product.name} ${product.category}`.toLowerCase());
-    
-    card.innerHTML = `
-      <div class="relative aspect-square bg-muted overflow-hidden">
-        <img src="${mainImage}" alt="${product.name}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
-        <div class="absolute top-3 left-3">
-          ${statusHtml}
-        </div>
-        <div class="absolute top-3 right-3 flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-          <button onclick="openEditModal('${product.id}')" class="w-8 h-8 bg-white rounded-full shadow-md flex items-center justify-center text-secondary hover:text-primary hover:bg-muted transition-colors" title="Edit">
-            <i data-lucide="edit-2" class="w-4 h-4"></i>
-          </button>
-          <button onclick="promptDelete('${product.id}')" class="w-8 h-8 bg-white rounded-full shadow-md flex items-center justify-center text-secondary hover:text-error hover:bg-muted transition-colors" title="Delete">
-            <i data-lucide="trash-2" class="w-4 h-4"></i>
-          </button>
-        </div>
-      </div>
-      <div class="p-4 flex flex-col flex-1">
-        <p class="text-xs text-secondary font-medium mb-1 uppercase tracking-wider">${product.category}</p>
-        <h3 class="font-semibold text-foreground leading-tight mb-2 line-clamp-2 flex-1">${product.name}</h3>
-        <div class="flex items-end justify-between mt-auto pt-3 border-t border-border/50">
-          <p class="font-bold text-lg">$${parseFloat(product.price).toFixed(2)}</p>
-          <p class="text-xs text-secondary">${product.variants.length} Variant${product.variants.length !== 1 ? 's' : ''}</p>
-        </div>
-      </div>
-    `;
-    container.appendChild(card);
-  });
-  lucide.createIcons();
-}
 
-function updateStats() {
-  const products = Object.values(productsData);
-  const total = products.length;
-  let active = 0;
-  let lowStock = 0;
-
-  products.forEach(p => {
-    const stock = p.variants.reduce((sum, v) => sum + (parseInt(v.stock) || 0), 0);
-    if (stock > 0) active++;
-    if (stock > 0 && stock < 10) lowStock++;
-  });
-
-  document.getElementById('statTotal').textContent = total;
-  document.getElementById('statActive').textContent = active;
-  document.getElementById('statLowStock').textContent = lowStock;
-}
 
 function applyFilters() {
   const search = document.getElementById('searchInput').value.toLowerCase().trim();
@@ -522,13 +592,13 @@ function applyFilters() {
 
 // --- Form & Dynamic Rows Logic ---
 
-function addSpecRow(key = '', value = '') {
+function addSpecRowForInsert(key = '', value = '') {
   const container = document.getElementById('specsContainer');
   const row = document.createElement('div');
   row.className = 'spec-row flex items-center gap-3';
   row.innerHTML = `
-    <input type="text" placeholder="e.g. Material" value="${key}" class="spec-key flex-1 px-3 py-2 bg-white border border-border rounded-lg text-sm focus:outline-none focus:border-primary">
-    <input type="text" placeholder="e.g. Aluminum" value="${value}" class="spec-value flex-1 px-3 py-2 bg-white border border-border rounded-lg text-sm focus:outline-none focus:border-primary">
+    <input type="text" placeholder="e.g. Material" name="spec_key[]" value="${key}" class="spec-key flex-1 px-3 py-2 bg-white border border-border rounded-lg text-sm focus:outline-none focus:border-primary">
+    <input type="text" placeholder="e.g. Aluminum" name="spec_value[]" value="${value}" class="spec-value flex-1 px-3 py-2 bg-white border border-border rounded-lg text-sm focus:outline-none focus:border-primary">
     <button type="button" onclick="this.closest('.spec-row').remove()" class="p-2 text-secondary hover:text-error hover:bg-error/10 rounded-lg transition-colors">
       <i data-lucide="minus" class="w-4 h-4"></i>
     </button>
@@ -537,7 +607,71 @@ function addSpecRow(key = '', value = '') {
   lucide.createIcons();
 }
 
-function addVariantRow(variant = { color: '', stock: 0, image: '' }) {
+function addSpecRowForUpdate(key = '', value = '') {
+  const container = document.getElementById('specsContainer');
+  const row = document.createElement('div');
+  row.className = 'spec-row flex items-center gap-3';
+  row.innerHTML = `
+    <input type="text" placeholder="e.g. Material" name="spec_key[]" value="${key}" class="spec-key flex-1 px-3 py-2 bg-white border border-border rounded-lg text-sm focus:outline-none focus:border-primary">
+    <input type="text" placeholder="e.g. Aluminum" name="spec_value[]" value="${value}" class="spec-value flex-1 px-3 py-2 bg-white border border-border rounded-lg text-sm focus:outline-none focus:border-primary">
+    <button type="button" onclick="this.closest('.spec-row').remove()" class="p-2 text-secondary hover:text-error hover:bg-error/10 rounded-lg transition-colors">
+      <i data-lucide="minus" class="w-4 h-4"></i>
+    </button>
+  `;
+  container.appendChild(row);
+  lucide.createIcons();
+}
+
+function addVariantRowForInsert(variant = { color: '', stock: 0, image: '' }) {
+  const container = document.getElementById('variantsContainer');
+  const rowId = 'var_' + Math.random().toString(36).substr(2, 9);
+  const row = document.createElement('div');
+  row.className = 'variant-row flex flex-col sm:flex-row items-start gap-4 p-4 border border-border rounded-xl bg-card-grey relative group';
+  
+  const hasImage = variant.image && variant.image !== '';
+  
+  row.innerHTML = `
+    <!-- Image Upload Box -->
+    <div class="shrink-0 w-full sm:w-auto flex justify-center sm:block">
+      <label class="cursor-pointer block relative group/img">
+        <input type="file" name="product_image[]" class="hidden variant-file" accept="image/*" onchange="handleImagePreview(this)">
+        <input type="hidden" class="variant-image-url" value="${variant.image}">
+        <div class="w-24 h-24 rounded-xl border-2 border-dashed border-border flex flex-col items-center justify-center bg-white overflow-hidden relative hover:border-primary transition-colors">
+          <img src="${variant.image}" class="w-full h-full object-cover data-preview-img ${hasImage ? '' : 'hidden'}">
+          <div class="data-placeholder flex flex-col items-center ${hasImage ? 'hidden' : ''}">
+            <i data-lucide="image-plus" class="w-6 h-6 text-secondary mb-1 group-hover/img:text-primary transition-colors"></i>
+            <span class="text-[10px] text-secondary font-medium">Upload</span>
+          </div>
+          <!-- Overlay on hover if image exists -->
+          <div class="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 ${hasImage ? 'group-hover/img:opacity-100' : ''} transition-opacity">
+             <i data-lucide="edit-2" class="w-5 h-5 text-white"></i>
+          </div>
+        </div>
+      </label>
+    </div>
+    
+    <!-- Inputs -->
+    <div class="flex-1 w-full grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div>
+        <label class="block text-xs font-medium text-secondary mb-1">Color / Name</label>
+        <input type="text" name="color_name[]" value="${variant.color}" placeholder="e.g. Matte Black" class="variant-color w-full px-3 py-2 bg-white border border-border rounded-lg text-sm focus:outline-none focus:border-primary">
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-secondary mb-1">Stock Quantity</label>
+        <input type="number" name="color_stock[]" value="${variant.stock}" min="0" class="variant-stock w-full px-3 py-2 bg-white border border-border rounded-lg text-sm focus:outline-none focus:border-primary">
+      </div>
+    </div>
+    
+    <!-- Remove Button -->
+    <button type="button" onclick="this.closest('.variant-row').remove()" class="absolute top-2 right-2 p-1.5 text-secondary hover:text-error hover:bg-error/10 rounded-lg transition-colors opacity-100 sm:opacity-0 sm:group-hover:opacity-100">
+      <i data-lucide="trash-2" class="w-4 h-4"></i>
+    </button>
+  `;
+  container.appendChild(row);
+  lucide.createIcons();
+}
+
+function addVariantRowForUpdate(variant = { color: '', stock: 0, image: '' }) {
   const container = document.getElementById('variantsContainer');
   const rowId = 'var_' + Math.random().toString(36).substr(2, 9);
   const row = document.createElement('div');
@@ -623,46 +757,28 @@ function openProductModal() {
   document.getElementById('variantsContainer').innerHTML = '';
   
   // Add initial empty rows
-  addSpecRow();
-  addVariantRow();
+  addSpecRowForInsert();
+  addVariantRowForInsert();
   
   showModal('productModal', 'productModalContent');
 }
 
 function openEditModal(id) {
-  const product = productsData[id];
-  if (!product) return;
+  
   
   document.getElementById('modalTitle').textContent = 'Edit Product';
-  document.getElementById('inputId').value = product.id;
-  document.getElementById('inputName').value = product.name;
-  document.getElementById('inputCategory').value = product.category;
-  document.getElementById('inputPrice').value = product.price;
-  document.getElementById('inputDescription').value = product.description;
   
-  // Populate Specs
-  const specsContainer = document.getElementById('specsContainer');
-  specsContainer.innerHTML = '';
-  if (product.specs && product.specs.length > 0) {
-    product.specs.forEach(spec => addSpecRow(spec.key, spec.value));
-  } else {
-    addSpecRow();
-  }
   
-  // Populate Variants
-  const variantsContainer = document.getElementById('variantsContainer');
-  variantsContainer.innerHTML = '';
-  if (product.variants && product.variants.length > 0) {
-    product.variants.forEach(variant => addVariantRow(variant));
-  } else {
-    addVariantRow();
-  }
   
-  showModal('productModal', 'productModalContent');
+  showModal('productModalEditForm', 'productModalContent');
 }
 
 function closeProductModal() {
   hideModal('productModal', 'productModalContent');
+}
+
+function closeEditProductModal() {
+  hideModal('productModalEditForm', 'productModalContent');
 }
 
 function saveProduct() {
@@ -721,8 +837,7 @@ function saveProduct() {
     variants
   };
 
-  renderProducts();
-  updateStats();
+  
   applyFilters(); // Re-apply current filters
   closeProductModal();
   showToast('Product saved successfully!', 'success');
@@ -805,6 +920,23 @@ function showToast(msg, type = 'success') {
 }
 
 
+</script>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    
+    <?php if (!empty($_SESSION['success'])): ?>
+        
+        
+        showToast(<?php echo json_encode($_SESSION['success']); ?>, 'success');
+        
+        <?php 
+            
+            unset($_SESSION['success']); 
+        ?>
+        
+    <?php endif; ?>
+});
 </script>
 
 
