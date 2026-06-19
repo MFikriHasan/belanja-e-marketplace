@@ -2,11 +2,6 @@
 require 'koneksi.php';
 include 'login_check.php';
 
-if (!isset($_SESSION['seller_id'])) {
-    header("Location: login.php");
-    exit;
-}
-
 $seller_id = $_SESSION['seller_id'];
 
 

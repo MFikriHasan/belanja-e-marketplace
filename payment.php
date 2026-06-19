@@ -284,7 +284,7 @@
         <!-- Items Preview -->
          <?php foreach ($items as $item): ?>
           <div class="flex items-center gap-3 mb-4 pb-4 border-b border-border">
-            <img src="<?= $item['image'] ?>" class="w-12 h-12 rounded-lg object-cover border border-border">
+            <img src="<?= 'storage/image/'.$item['image'] ?>" class="w-12 h-12 rounded-lg object-cover border border-border">
             <div class="flex-1 min-w-0">
               <p class="text-sm font-medium truncate"><?= $item['name'] ?></p>
               <p class="text-xs text-secondary">Qty: <?= $item['qty'] ?> | Variant: <?= $item['color'] ?></p>

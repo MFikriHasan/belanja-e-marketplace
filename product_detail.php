@@ -169,7 +169,7 @@
   
   <!-- Breadcrumbs -->
   <nav class="flex items-center gap-2 text-sm text-secondary mb-6 md:mb-8 overflow-x-auto scrollbar-hide whitespace-nowrap">
-    <a href="#" class="hover:text-primary transition-colors">Home</a>
+    <a href="home.php" class="hover:text-primary transition-colors">Home</a>
     <i data-lucide="chevron-right" class="size-4"></i>
     <a href="#" class="hover:text-primary transition-colors">Product Detail</a>
     <i data-lucide="chevron-right" class="size-4"></i>
@@ -190,7 +190,7 @@
         while ($v = $variants->fetch_assoc()) {
           $variants_arr[] = $v;
         }
-        $first_image = !empty($variants_arr) ? $variants_arr[0]['product_image'] : '';
+        $first_image = !empty($variants_arr) ? 'storage/image/' . $variants_arr[0]['product_image'] : '';
       ?>
       <div class="aspect-square rounded-3xl overflow-hidden bg-card-grey border border-border relative group flex items-center justify-center p-8">
         <img id="main-product-image" src="<?= $first_image ?>" alt="Product" class="w-full h-full object-contain transition-transform duration-500 group-hover:scale-105">
@@ -202,8 +202,8 @@
       <!-- Thumbnails -->
       <div class="flex gap-3 overflow-x-auto scrollbar-hide pb-2">
         <?php foreach ($variants_arr as $idx => $variant): ?>
-          <button onclick="changeImage(this, '<?= htmlspecialchars($variant['product_image']) ?>')" class="thumbnail-btn flex-shrink-0 size-20 rounded-xl border-2 <?= $idx === 0 ? 'border-primary' : 'border-transparent' ?> overflow-hidden bg-card-grey p-2 cursor-pointer">
-            <img src="<?= htmlspecialchars($variant['product_image']) ?>" class="w-full h-full object-contain">
+          <button onclick="changeImage(this, '<?= htmlspecialchars('storage/image/' . $variant['product_image']) ?>')" class="thumbnail-btn flex-shrink-0 size-20 rounded-xl border-2 <?= $idx === 0 ? 'border-primary' : 'border-transparent' ?> overflow-hidden bg-card-grey p-2 cursor-pointer">
+            <img src="<?= !empty($variant['product_image']) ? 'storage/image/' . $variant['product_image'] : 'https://images.unsplash.com/photo-1618366712010-f4ae9c647dcb?w=400&h=400&fit=crop'; ?>" class="w-full h-full object-contain">
           </button>
         <?php endforeach; ?>
       </div>
@@ -301,17 +301,17 @@
       <div class="flex items-center justify-between p-4 rounded-2xl border border-border bg-card-grey mb-8">
         <div class="flex items-center gap-4">
           <div class="size-12 rounded-full bg-white border border-border flex items-center justify-center overflow-hidden shadow-sm">
-            <span class="font-bold text-primary text-xl">S</span>
+            <img src="<?= !empty($product['seller_logo']) ? 'storage/image/' . $product['seller_logo'] : 'https://images.unsplash.com/photo-1560179707-f14e90ef3623?w=100&h=100&fit=crop'; ?>" alt="Earbuds" class="w-full h-full object-contain group-hover:scale-110 transition-transform duration-500">
           </div>
           <div>
             <h4 class="font-semibold text-foreground flex items-center gap-1">
-              Sony Official Store
+              <?= $product['seller_name'] ?>
               <i data-lucide="badge-check" class="size-4 text-primary"></i>
             </h4>
             <p class="text-xs text-secondary mt-0.5">99% Positive Feedback • 12k Followers</p>
           </div>
         </div>
-        <a href="merch_store.html" class="px-4 py-2 rounded-full border border-border bg-white text-sm font-medium hover:border-primary hover:text-primary transition-colors cursor-pointer hidden sm:block">
+        <a href="seller_detail.php?id=<?= $product['seller_id'] ?>" class="px-4 py-2 rounded-full border border-border bg-white text-sm font-medium hover:border-primary hover:text-primary transition-colors cursor-pointer hidden sm:block">
           Visit Store
         </a>
       </div>
@@ -363,16 +363,7 @@
     <div class="p-6 md:p-8">
       <!-- Description Tab -->
       <div id="tab-description" data-tab-content class="block space-y-6 text-secondary leading-relaxed">
-        <p>The WH-1000XM5 headphones rewrite the rules for distraction-free listening. Two processors control 8 microphones for unprecedented noise cancellation and exceptional call quality. With a newly developed driver, DSEE - Extreme and Hires audio support the WH-1000XM5 headphones provide awe-inspiring audio quality.</p>
-        <h4 class="text-foreground font-semibold text-lg mt-8 mb-4">Industry-Leading Noise Cancellation</h4>
-        <p>From airplane noise to people's voices, our WH-1000XM5 wireless headphones with multiple microphone noise canceling keep out more high and mid frequency sounds than ever. And with Auto NC Optimizer, noise canceling is automatically optimized based on your wearing conditions and environment.</p>
-        <ul class="list-disc pl-5 space-y-2 mt-4">
-          <li>Industry-leading noise cancellation optimized to you</li>
-          <li>Magnificent Sound, engineered to perfection</li>
-          <li>Crystal clear hands-free calling</li>
-          <li>Up to 30-hour battery life with quick charging (3 min charge for 3 hours of playback)</li>
-          <li>Ultra-comfortable, lightweight design with soft fit leather</li>
-        </ul>
+        <p><?= $product['description'] ?></p>
       </div>
 
       <!-- Reviews Tab (Hidden by default) -->

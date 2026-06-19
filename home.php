@@ -170,7 +170,7 @@ $most_picked = $exec->fetch_all(MYSQLI_ASSOC);
         
 
     <?php foreach ($sellers as $seller): ?>
-        <a href="/seller.php?id=<?= $seller['id'] ?>" class="bg-white rounded-2xl border border-border p-4 flex items-center gap-4 hover:border-primary/50 hover:shadow-md transition-all group cursor-pointer text-left decoration-none">
+        <a href="/seller_detail.php?id=<?= $seller['id'] ?>" class="bg-white rounded-2xl border border-border p-4 flex items-center gap-4 hover:border-primary/50 hover:shadow-md transition-all group cursor-pointer text-left decoration-none">
         <div class="w-16 h-16 rounded-full bg-muted border border-border overflow-hidden flex-shrink-0">
           <img src="https://images.unsplash.com/photo-1560159906-839eb14e15a5?w=100&h=100&fit=crop" alt="Shop Logo" class="w-full h-full object-cover">
         </div>

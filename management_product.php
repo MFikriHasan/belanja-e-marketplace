@@ -328,8 +328,6 @@
            <?php endforeach; ?>
         </div>
      <?php endif; ?>
-
-
   </div>
 </main>
 
@@ -429,8 +427,6 @@
     </div>
   </div>
 </div>
-
-
 
 <!-- Delete Form Modal -->
 <div id="deleteModal" class="fixed inset-0 bg-foreground/60 z-[110] hidden flex items-center justify-center p-4 backdrop-blur-sm opacity-0 transition-opacity duration-300">

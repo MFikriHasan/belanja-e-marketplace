@@ -217,7 +217,7 @@
               </div>
 
               <div class="w-20 h-20 sm:w-24 sm:h-24 flex-shrink-0 rounded-xl border border-border-color overflow-hidden bg-white p-2">
-                <img src="<?= htmlspecialchars($item['image']) ?>" alt="<?= htmlspecialchars($item['name']) ?>" class="w-full h-full object-contain">
+                <img src="<?= htmlspecialchars('storage/image/'.$item['image']) ?>" alt="<?= htmlspecialchars($item['name']) ?>" class="w-full h-full object-contain">
               </div>
 
               <div class="flex-1 flex flex-col justify-between min-w-0">
