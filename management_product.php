@@ -303,15 +303,15 @@
            <?php foreach ($products as $row): ?>
               <div class="bg-white rounded-2xl border border-border overflow-hidden hover:shadow-lg transition-shadow duration-300 flex flex-col group">
                 <div class="relative aspect-square bg-muted overflow-hidden">
-                  <img src="<?= $path_gambar = !empty($row['product_image']) ? 'storage/image/' . $row['product_image'] : 'https://images.unsplash.com/photo-1618366712010-f4ae9c647dcb?w=400&h=400&fit=crop'; ?>" alt="<?= $row['name'] ?>" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
+                  <img src="<?= !empty($row['product_image']) ? 'storage/image/' . $row['product_image'] : 'https://images.unsplash.com/photo-1618366712010-f4ae9c647dcb?w=400&h=400&fit=crop'; ?>" alt="<?= $row['name'] ?>" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
                   <div class="absolute top-3 left-3">
                     <span class="<?= ($row['stock_total'] >= 30) ? 'bg-success/10 text-success px-2.5 py-1 rounded-full text-xs font-semibold border border-success/20' : (($row['stock_total'] >= 10) ? 'bg-warning/10 text-warning px-2.5 py-1 rounded-full text-xs font-semibold border border-warning/20' : 'bg-error/10 text-error px-2.5 py-1 rounded-full text-xs font-semibold border border-error/20') ?>"><?= ($row['stock_total'] >= 30) ? 'In Stock' : (($row['stock_total'] >= 10) ? 'Low Stock' : 'Out of Stock') ?> (<?= $row['stock_total'] ?>)</span>
                   </div>
                   <div class="absolute top-3 right-3 flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                    <button onclick="openEditModal(<?= $row['id'] ?>)" class="w-8 h-8 bg-white rounded-full shadow-md flex items-center justify-center text-secondary hover:text-primary hover:bg-muted transition-colors" title="Edit">
+                    <a href="edit_product.php?id=<?= $row['id'] ?>" class="w-8 h-8 bg-white rounded-full shadow-md flex items-center justify-center text-secondary hover:text-primary hover:bg-muted transition-colors" title="Edit">
                       <i data-lucide="edit-2" class="w-4 h-4"></i>
-                    </button>
-                    <button onclick="promptDelete(<?= $row['id'] ?>)" class="w-8 h-8 bg-white rounded-full shadow-md flex items-center justify-center text-secondary hover:text-error hover:bg-muted transition-colors" title="Delete">
+                    </a>
+                    <button onclick="promptDelete(<?= $row['id'] ?>, '<?= addslashes($row['name']) ?>')" class="w-8 h-8 bg-white rounded-full shadow-md flex items-center justify-center text-secondary hover:text-error hover:bg-muted transition-colors" title="Delete">
                       <i data-lucide="trash-2" class="w-4 h-4"></i>
                     </button>
                   </div>
@@ -430,515 +430,266 @@
   </div>
 </div>
 
-<?php foreach ($products as $row): ?>
-  <!-- Product Form Modal (Edit) -->
-  <div id="productModalEditForm" class="fixed inset-0 bg-foreground/60 z-[100] hidden flex items-center justify-center p-4 sm:p-6 backdrop-blur-sm opacity-0 transition-opacity duration-300">
-    <div class="bg-white rounded-2xl w-full max-w-4xl max-h-[90vh] flex flex-col shadow-2xl transform scale-95 transition-transform duration-300" id="productModalContent">
-      
-      <!-- Modal Header -->
-      <div class="flex items-center justify-between px-6 py-4 border-b border-border shrink-0">
-        <h2 class="text-xl font-bold" id="modalTitle">Edit Product</h2>
-        <button onclick="closeEditProductModal()" class="p-2 text-secondary hover:bg-muted rounded-full transition-colors">
-          <i data-lucide="x" class="w-5 h-5"></i>
-        </button>
-      </div>
-
-      <!-- Modal Body (Scrollable) -->
-      <div class="flex-1 overflow-y-auto p-6 custom-scrollbar">
-        <form method="post" action="update_product.php" id="productForm" class="space-y-8" enctype="multipart/form-data">
-          <input type="hidden" id="inputId" value="<?= $row['id'] ?>">
-          
-          <!-- Basic Info Section -->
-          <div>
-            <h3 class="text-sm font-bold text-foreground uppercase tracking-wider mb-4 flex items-center gap-2">
-              <i data-lucide="info" class="w-4 h-4 text-primary"></i> Basic Information
-            </h3>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
-              <div class="md:col-span-2">
-                <label class="block text-sm font-medium text-secondary mb-1.5">Product Name *</label>
-                <input type="text" value="<?= $row['name'] ?>" name="product_name" id="inputName" required class="w-full px-4 py-2.5 bg-muted border border-border rounded-xl text-sm focus:bg-white focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all" placeholder="e.g. Wireless Noise-Cancelling Headphones">
-              </div>
-              <div>
-                <label class="block text-sm font-medium text-secondary mb-1.5">Category *</label>
-                <select name="category" id="inputCategory" required class="w-full px-4 py-2.5 bg-muted border border-border rounded-xl text-sm focus:bg-white focus:outline-none focus:border-primary appearance-none">
-                  <option value="0">Select Category</option>
-                  <?php foreach ($categories as $category): ?>
-                    <option <?= ($category['id'] == $row['category_id']) ? 'selected' : '' ?>  value="<?= $category['id'] ?>"><?= $category['name'] ?></option>
-                  <?php endforeach; ?>
-                </select>
-              </div>
-              <div>
-                <label class="block text-sm font-medium text-secondary mb-1.5">Base Price ($) *</label>
-                <input type="number" value="<?= $row['price'] ?>" name="price" id="inputPrice" step="0.01" required class="w-full px-4 py-2.5 bg-muted border border-border rounded-xl text-sm focus:bg-white focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all" placeholder="0.00">
-              </div>
-              <div class="md:col-span-2">
-                <label class="block text-sm font-medium text-secondary mb-1.5">Description</label>
-                <textarea name="description" id="inputDescription" rows="3" class="w-full px-4 py-2.5 bg-muted border border-border rounded-xl text-sm focus:bg-white focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all resize-none" placeholder="Brief product description..."><?= $row['description'] ?></textarea>
-              </div>
-            </div>
-          </div>
-
-          <hr class="border-border">
-
-          <!-- Specifications Section -->
-          <div>
-            <div class="flex items-center justify-between mb-4">
-              <h3 class="text-sm font-bold text-foreground uppercase tracking-wider flex items-center gap-2">
-                <i data-lucide="list" class="w-4 h-4 text-primary"></i> Specifications
-              </h3>
-              <button type="button" onclick="addSpecRowForUpdate()" class="text-sm text-primary font-medium hover:underline flex items-center gap-1">
-                <i data-lucide="plus" class="w-4 h-4"></i> Add Spec
-              </button>
-            </div>
-            <div id="specsContainer" class="space-y-3">
-              <!-- Spec rows injected here -->
-            </div>
-          </div>
-
-          <hr class="border-border">
-
-          <!-- Variants Section (Colors, Stock, Images) -->
-          <div>
-            <div class="flex items-center justify-between mb-4">
-              <div>
-                <h3 class="text-sm font-bold text-foreground uppercase tracking-wider flex items-center gap-2">
-                  <i data-lucide="layers" class="w-4 h-4 text-primary"></i> Product Variants
-                </h3>
-                <p class="text-xs text-secondary mt-1">Add colors, manage stock, and upload images for each variant.</p>
-              </div>
-              <button type="button" onclick="addVariantRowForUpdate()" class="bg-primary/10 text-primary px-3 py-1.5 rounded-lg text-sm font-semibold hover:bg-primary/20 transition-colors flex items-center gap-1">
-                <i data-lucide="plus" class="w-4 h-4"></i> Add Variant
-              </button>
-            </div>
-            
-            <div id="variantsContainer" class="space-y-4">
-              <!-- Variant rows injected here -->
-            </div>
-          </div>
-
-        
-      </div>
-
-      <!-- Modal Footer -->
-      <div class="px-6 py-4 border-t border-border bg-card-grey rounded-b-2xl flex justify-end gap-3 shrink-0">
-        <button type="button" onclick="closeEditProductModal()" class="px-6 py-2.5 rounded-xl font-medium text-secondary hover:bg-border transition-colors">Cancel</button>
-        <button type="submit" name="save_product" class="px-6 py-2.5 rounded-xl font-semibold bg-primary text-white hover:bg-primary-hover transition-colors shadow-sm">Save Product</button>
-        </form>
-      </div>
-    </div>
-  </div>
-<?php endforeach; ?>
 
 
-<!-- Delete Confirmation Modal -->
+<!-- Delete Form Modal -->
 <div id="deleteModal" class="fixed inset-0 bg-foreground/60 z-[110] hidden flex items-center justify-center p-4 backdrop-blur-sm opacity-0 transition-opacity duration-300">
   <div class="bg-white rounded-2xl w-full max-w-sm p-6 text-center shadow-2xl transform scale-95 transition-transform duration-300" id="deleteModalContent">
     <div class="w-16 h-16 bg-error/10 rounded-full flex items-center justify-center mx-auto mb-4">
       <i data-lucide="alert-triangle" class="w-8 h-8 text-error"></i>
     </div>
     <h3 class="text-xl font-bold mb-2">Delete Product?</h3>
-    <p class="text-secondary text-sm mb-6">This action cannot be undone. This will permanently remove the product and all its variants.</p>
-    <div class="flex gap-3">
-      <button onclick="closeDeleteModal()" class="flex-1 py-2.5 rounded-xl font-medium border border-border hover:bg-muted transition-colors">Cancel</button>
-      <button onclick="confirmDelete()" class="flex-1 py-2.5 rounded-xl font-semibold bg-error text-white hover:bg-red-600 transition-colors">Delete</button>
-    </div>
+    <p class="text-secondary text-sm mb-6">Are you sure you want to delete <span id="deleteProductName" class="font-semibold text-foreground"></span>? This action cannot be undone.</p>
+    
+    <form action="delete_product.php" method="POST">
+      <input type="hidden" name="id" id="deleteProductId">
+      
+      <div class="flex gap-3">
+        <button type="button" onclick="closeDeleteModal()" class="flex-1 py-2.5 rounded-xl font-medium border border-border hover:bg-muted transition-colors cursor-pointer">Cancel</button>
+        <button type="submit" class="flex-1 py-2.5 rounded-xl font-semibold bg-error text-white hover:bg-red-600 transition-colors cursor-pointer">Delete</button>
+      </div>
+    </form>
   </div>
 </div>
 
 
-
 <script>
 
 
-let itemToDelete = null;
-
-// --- Initialization ---
-document.addEventListener('DOMContentLoaded', () => {
-  lucide.createIcons();
-});
 
 
-
-
-function applyFilters() {
-  const search = document.getElementById('searchInput').value.toLowerCase().trim();
-  const category = document.getElementById('categoryFilter').value;
-  let visibleCount = 0;
-
-  document.querySelectorAll('[data-item-id]').forEach(card => {
-    const searchable = card.getAttribute('data-searchable');
-    const itemCategory = card.getAttribute('data-category');
-    
-    const matchesSearch = search === '' || searchable.includes(search);
-    const matchesCategory = category === 'all' || itemCategory === category;
-    
-    if (matchesSearch && matchesCategory) {
-      card.style.display = '';
-      visibleCount++;
-    } else {
-      card.style.display = 'none';
-    }
-  });
-
-  const noResults = document.getElementById('noResults');
-  if (visibleCount === 0) {
-    noResults.classList.remove('hidden');
-    document.getElementById('productsGrid').classList.add('hidden');
-  } else {
-    noResults.classList.add('hidden');
-    document.getElementById('productsGrid').classList.remove('hidden');
-  }
-}
-
-// --- Form & Dynamic Rows Logic ---
-
-function addSpecRowForInsert(key = '', value = '') {
-  const container = document.getElementById('specsContainer');
-  const row = document.createElement('div');
-  row.className = 'spec-row flex items-center gap-3';
-  row.innerHTML = `
-    <input type="text" placeholder="e.g. Material" name="spec_key[]" value="${key}" class="spec-key flex-1 px-3 py-2 bg-white border border-border rounded-lg text-sm focus:outline-none focus:border-primary">
-    <input type="text" placeholder="e.g. Aluminum" name="spec_value[]" value="${value}" class="spec-value flex-1 px-3 py-2 bg-white border border-border rounded-lg text-sm focus:outline-none focus:border-primary">
-    <button type="button" onclick="this.closest('.spec-row').remove()" class="p-2 text-secondary hover:text-error hover:bg-error/10 rounded-lg transition-colors">
-      <i data-lucide="minus" class="w-4 h-4"></i>
-    </button>
-  `;
-  container.appendChild(row);
-  lucide.createIcons();
-}
-
-function addSpecRowForUpdate(key = '', value = '') {
-  const container = document.getElementById('specsContainer');
-  const row = document.createElement('div');
-  row.className = 'spec-row flex items-center gap-3';
-  row.innerHTML = `
-    <input type="text" placeholder="e.g. Material" name="spec_key[]" value="${key}" class="spec-key flex-1 px-3 py-2 bg-white border border-border rounded-lg text-sm focus:outline-none focus:border-primary">
-    <input type="text" placeholder="e.g. Aluminum" name="spec_value[]" value="${value}" class="spec-value flex-1 px-3 py-2 bg-white border border-border rounded-lg text-sm focus:outline-none focus:border-primary">
-    <button type="button" onclick="this.closest('.spec-row').remove()" class="p-2 text-secondary hover:text-error hover:bg-error/10 rounded-lg transition-colors">
-      <i data-lucide="minus" class="w-4 h-4"></i>
-    </button>
-  `;
-  container.appendChild(row);
-  lucide.createIcons();
-}
-
-function addVariantRowForInsert(variant = { color: '', stock: 0, image: '' }) {
-  const container = document.getElementById('variantsContainer');
-  const rowId = 'var_' + Math.random().toString(36).substr(2, 9);
-  const row = document.createElement('div');
-  row.className = 'variant-row flex flex-col sm:flex-row items-start gap-4 p-4 border border-border rounded-xl bg-card-grey relative group';
-  
-  const hasImage = variant.image && variant.image !== '';
-  
-  row.innerHTML = `
-    <!-- Image Upload Box -->
-    <div class="shrink-0 w-full sm:w-auto flex justify-center sm:block">
-      <label class="cursor-pointer block relative group/img">
-        <input type="file" name="product_image[]" class="hidden variant-file" accept="image/*" onchange="handleImagePreview(this)">
-        <input type="hidden" class="variant-image-url" value="${variant.image}">
-        <div class="w-24 h-24 rounded-xl border-2 border-dashed border-border flex flex-col items-center justify-center bg-white overflow-hidden relative hover:border-primary transition-colors">
-          <img src="${variant.image}" class="w-full h-full object-cover data-preview-img ${hasImage ? '' : 'hidden'}">
-          <div class="data-placeholder flex flex-col items-center ${hasImage ? 'hidden' : ''}">
-            <i data-lucide="image-plus" class="w-6 h-6 text-secondary mb-1 group-hover/img:text-primary transition-colors"></i>
-            <span class="text-[10px] text-secondary font-medium">Upload</span>
-          </div>
-          <!-- Overlay on hover if image exists -->
-          <div class="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 ${hasImage ? 'group-hover/img:opacity-100' : ''} transition-opacity">
-             <i data-lucide="edit-2" class="w-5 h-5 text-white"></i>
-          </div>
-        </div>
-      </label>
-    </div>
-    
-    <!-- Inputs -->
-    <div class="flex-1 w-full grid grid-cols-1 sm:grid-cols-2 gap-4">
-      <div>
-        <label class="block text-xs font-medium text-secondary mb-1">Color / Name</label>
-        <input type="text" name="color_name[]" value="${variant.color}" placeholder="e.g. Matte Black" class="variant-color w-full px-3 py-2 bg-white border border-border rounded-lg text-sm focus:outline-none focus:border-primary">
-      </div>
-      <div>
-        <label class="block text-xs font-medium text-secondary mb-1">Stock Quantity</label>
-        <input type="number" name="color_stock[]" value="${variant.stock}" min="0" class="variant-stock w-full px-3 py-2 bg-white border border-border rounded-lg text-sm focus:outline-none focus:border-primary">
-      </div>
-    </div>
-    
-    <!-- Remove Button -->
-    <button type="button" onclick="this.closest('.variant-row').remove()" class="absolute top-2 right-2 p-1.5 text-secondary hover:text-error hover:bg-error/10 rounded-lg transition-colors opacity-100 sm:opacity-0 sm:group-hover:opacity-100">
-      <i data-lucide="trash-2" class="w-4 h-4"></i>
-    </button>
-  `;
-  container.appendChild(row);
-  lucide.createIcons();
-}
-
-function addVariantRowForUpdate(variant = { color: '', stock: 0, image: '' }) {
-  const container = document.getElementById('variantsContainer');
-  const rowId = 'var_' + Math.random().toString(36).substr(2, 9);
-  const row = document.createElement('div');
-  row.className = 'variant-row flex flex-col sm:flex-row items-start gap-4 p-4 border border-border rounded-xl bg-card-grey relative group';
-  
-  const hasImage = variant.image && variant.image !== '';
-  
-  row.innerHTML = `
-    <!-- Image Upload Box -->
-    <div class="shrink-0 w-full sm:w-auto flex justify-center sm:block">
-      <label class="cursor-pointer block relative group/img">
-        <input type="file" class="hidden variant-file" accept="image/*" onchange="handleImagePreview(this)">
-        <input type="hidden" class="variant-image-url" value="${variant.image}">
-        <div class="w-24 h-24 rounded-xl border-2 border-dashed border-border flex flex-col items-center justify-center bg-white overflow-hidden relative hover:border-primary transition-colors">
-          <img src="${variant.image}" class="w-full h-full object-cover data-preview-img ${hasImage ? '' : 'hidden'}">
-          <div class="data-placeholder flex flex-col items-center ${hasImage ? 'hidden' : ''}">
-            <i data-lucide="image-plus" class="w-6 h-6 text-secondary mb-1 group-hover/img:text-primary transition-colors"></i>
-            <span class="text-[10px] text-secondary font-medium">Upload</span>
-          </div>
-          <!-- Overlay on hover if image exists -->
-          <div class="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 ${hasImage ? 'group-hover/img:opacity-100' : ''} transition-opacity">
-             <i data-lucide="edit-2" class="w-5 h-5 text-white"></i>
-          </div>
-        </div>
-      </label>
-    </div>
-    
-    <!-- Inputs -->
-    <div class="flex-1 w-full grid grid-cols-1 sm:grid-cols-2 gap-4">
-      <div>
-        <label class="block text-xs font-medium text-secondary mb-1">Color / Name</label>
-        <input type="text" value="${variant.color}" placeholder="e.g. Matte Black" class="variant-color w-full px-3 py-2 bg-white border border-border rounded-lg text-sm focus:outline-none focus:border-primary">
-      </div>
-      <div>
-        <label class="block text-xs font-medium text-secondary mb-1">Stock Quantity</label>
-        <input type="number" value="${variant.stock}" min="0" class="variant-stock w-full px-3 py-2 bg-white border border-border rounded-lg text-sm focus:outline-none focus:border-primary">
-      </div>
-    </div>
-    
-    <!-- Remove Button -->
-    <button type="button" onclick="this.closest('.variant-row').remove()" class="absolute top-2 right-2 p-1.5 text-secondary hover:text-error hover:bg-error/10 rounded-lg transition-colors opacity-100 sm:opacity-0 sm:group-hover:opacity-100">
-      <i data-lucide="trash-2" class="w-4 h-4"></i>
-    </button>
-  `;
-  container.appendChild(row);
-  lucide.createIcons();
-}
-
-function handleImagePreview(input) {
-  if (input.files && input.files[0]) {
-    const reader = new FileReader();
-    const row = input.closest('.variant-row');
-    const imgPreview = row.querySelector('.data-preview-img');
-    const placeholder = row.querySelector('.data-placeholder');
-    const urlInput = row.querySelector('.variant-image-url');
-    
-    reader.onload = function(e) {
-      imgPreview.src = e.target.result;
-      imgPreview.classList.remove('hidden');
-      placeholder.classList.add('hidden');
-      urlInput.value = e.target.result; // Store base64 for saving
-      
-      // Add hover overlay logic
-      const label = row.querySelector('label');
-      const overlay = label.querySelector('.absolute.inset-0');
-      if(overlay) {
-         overlay.classList.add('group-hover/img:opacity-100');
-      }
-    }
-    reader.readAsDataURL(input.files[0]);
-  }
-}
-
-// --- Modal Logic ---
-
-function openProductModal() {
-  document.getElementById('modalTitle').textContent = 'Add New Product';
-  document.getElementById('productForm').reset();
-  document.getElementById('inputId').value = '';
-  
-  // Clear dynamic rows
-  document.getElementById('specsContainer').innerHTML = '';
-  document.getElementById('variantsContainer').innerHTML = '';
-  
-  // Add initial empty rows
-  addSpecRowForInsert();
-  addVariantRowForInsert();
-  
-  showModal('productModal', 'productModalContent');
-}
-
-function openEditModal(id) {
-  
-  
-  document.getElementById('modalTitle').textContent = 'Edit Product';
-  
-  
-  
-  showModal('productModalEditForm', 'productModalContent');
-}
-
-function closeProductModal() {
-  hideModal('productModal', 'productModalContent');
-}
-
-function closeEditProductModal() {
-  hideModal('productModalEditForm', 'productModalContent');
-}
-
-function saveProduct() {
-  const id = document.getElementById('inputId').value || 'PROD-' + Math.floor(Math.random() * 10000).toString().padStart(4, '0');
-  const name = document.getElementById('inputName').value.trim();
-  const category = document.getElementById('inputCategory').value;
-  const price = document.getElementById('inputPrice').value;
-  
-  if (!name || !category || !price) {
-    showToast('Please fill in all required basic information.', 'error');
-    return;
-  }
-
-  // Gather Specs
-  const specs = [];
-  document.querySelectorAll('.spec-row').forEach(row => {
-    const key = row.querySelector('.spec-key').value.trim();
-    const value = row.querySelector('.spec-value').value.trim();
-    if (key || value) specs.push({ key, value });
-  });
-
-  // Gather Variants
-  const variants = [];
-  let hasVariantError = false;
-  document.querySelectorAll('.variant-row').forEach(row => {
-    const color = row.querySelector('.variant-color').value.trim();
-    const stock = row.querySelector('.variant-stock').value;
-    const image = row.querySelector('.variant-image-url').value;
-    
-    if (color) {
-      variants.push({ color, stock: parseInt(stock) || 0, image });
-    } else if (stock > 0 || image) {
-      hasVariantError = true; // Has data but no color name
-    }
-  });
-
-  if (hasVariantError) {
-    showToast('Please provide a color/name for all variants with data.', 'error');
-    return;
-  }
-  
-  if (variants.length === 0) {
-    // Force at least one default variant if empty
-    variants.push({ color: 'Default', stock: 0, image: '' });
-  }
-
-  // Save to data object
-  productsData[id] = {
-    id,
-    name,
-    category,
-    price: parseFloat(price),
-    description: document.getElementById('inputDescription').value,
-    status: 'active',
-    specs,
-    variants
-  };
-
-  
-  applyFilters(); // Re-apply current filters
-  closeProductModal();
-  showToast('Product saved successfully!', 'success');
-}
-
-// --- Delete Logic ---
-function promptDelete(id) {
-  itemToDelete = id;
-  showModal('deleteModal', 'deleteModalContent');
-}
-
-function closeDeleteModal() {
-  itemToDelete = null;
-  hideModal('deleteModal', 'deleteModalContent');
-}
-
-function confirmDelete() {
-  if (itemToDelete && productsData[itemToDelete]) {
-    delete productsData[itemToDelete];
-    renderProducts();
-    updateStats();
-    applyFilters();
-    closeDeleteModal();
-    showToast('Product deleted.', 'success');
-  }
-}
-
-// --- Utility Functions ---
-function toggleSidebar() {
-  const sidebar = document.getElementById('sidebar');
-  const overlay = document.getElementById('sidebarOverlay');
-  sidebar.classList.toggle('-translate-x-full');
-  overlay.classList.toggle('hidden');
-}
-
-function showModal(overlayId, contentId) {
-  const overlay = document.getElementById(overlayId);
-  const content = document.getElementById(contentId);
-  overlay.classList.remove('hidden');
-  // Small delay to allow display:block to apply before animating opacity
-  requestAnimationFrame(() => {
-    overlay.classList.remove('opacity-0');
-    content.classList.remove('scale-95');
-    content.classList.add('scale-100');
-  });
-}
-
-function hideModal(overlayId, contentId) {
-  const overlay = document.getElementById(overlayId);
-  const content = document.getElementById(contentId);
-  overlay.classList.add('opacity-0');
-  content.classList.remove('scale-100');
-  content.classList.add('scale-95');
-  setTimeout(() => {
-    overlay.classList.add('hidden');
-  }, 300); // Match transition duration
-}
-
-function showToast(msg, type = 'success') {
-  document.getElementById('toast')?.remove();
-  const t = document.createElement('div');
-  t.id = 'toast';
-  const bgClass = type === 'success' ? 'bg-foreground' : 'bg-error';
-  const icon = type === 'success' ? 'check-circle' : 'alert-circle';
-  
-  t.className = `fixed bottom-4 right-4 ${bgClass} text-white px-5 py-3 rounded-xl z-[200] flex items-center gap-3 shadow-xl transition-all duration-300 opacity-0 translate-y-4`;
-  t.innerHTML = `<i data-lucide="${icon}" class="w-5 h-5"></i><span class="font-medium text-sm">${msg}</span>`;
-  
-  document.body.appendChild(t);
-  lucide.createIcons();
-  
-  requestAnimationFrame(() => {
-    t.classList.remove('opacity-0', 'translate-y-4');
-  });
-  
-  setTimeout(() => {
-    t.classList.add('opacity-0', 'translate-y-4');
-    setTimeout(() => t.remove(), 300);
-  }, 3000);
-}
-
-
-</script>
-
-<script>
-document.addEventListener('DOMContentLoaded', () => {
-    
+  // --- Initialization ---
+  document.addEventListener('DOMContentLoaded', () => {
+    lucide.createIcons();
     <?php if (!empty($_SESSION['success'])): ?>
-        
-        
-        showToast(<?php echo json_encode($_SESSION['success']); ?>, 'success');
-        
-        <?php 
-            
-            unset($_SESSION['success']); 
-        ?>
-        
-    <?php endif; ?>
-});
-</script>
+          
+          
+          showToast(<?php echo json_encode($_SESSION['success']); ?>, 'success');
+          
+          <?php 
+              
+              unset($_SESSION['success']); 
+          ?>
+          
+      <?php endif; ?>
 
+      <?php if (!empty($_SESSION['error'])): ?>
+          
+          
+          showToast(<?php echo json_encode($_SESSION['error']); ?>, 'error');
+          
+          <?php 
+              
+              unset($_SESSION['error']); 
+          ?>
+          
+      <?php endif; ?>
+  });
+
+
+
+
+
+
+  // --- Form & Dynamic Rows Logic ---
+
+  function addSpecRowForInsert(key = '', value = '') {
+    const container = document.getElementById('specsContainer');
+    const row = document.createElement('div');
+    row.className = 'spec-row flex items-center gap-3';
+    row.innerHTML = `
+      <input type="text" placeholder="e.g. Material" name="spec_key[]" value="${key}" class="spec-key flex-1 px-3 py-2 bg-white border border-border rounded-lg text-sm focus:outline-none focus:border-primary">
+      <input type="text" placeholder="e.g. Aluminum" name="spec_value[]" value="${value}" class="spec-value flex-1 px-3 py-2 bg-white border border-border rounded-lg text-sm focus:outline-none focus:border-primary">
+      <button type="button" onclick="this.closest('.spec-row').remove()" class="p-2 text-secondary hover:text-error hover:bg-error/10 rounded-lg transition-colors">
+        <i data-lucide="minus" class="w-4 h-4"></i>
+      </button>
+    `;
+    container.appendChild(row);
+    lucide.createIcons();
+  }
+
+
+
+  function addVariantRowForInsert(variant = { color: '', stock: 0, image: '' }) {
+    const container = document.getElementById('variantsContainer');
+    const rowId = 'var_' + Math.random().toString(36).substr(2, 9);
+    const row = document.createElement('div');
+    row.className = 'variant-row flex flex-col sm:flex-row items-start gap-4 p-4 border border-border rounded-xl bg-card-grey relative group';
+    
+    const hasImage = variant.image && variant.image !== '';
+    
+    row.innerHTML = `
+      <!-- Image Upload Box -->
+      <div class="shrink-0 w-full sm:w-auto flex justify-center sm:block">
+        <label class="cursor-pointer block relative group/img">
+          <input type="file" name="product_image[]" class="hidden variant-file" accept="image/*" onchange="handleImagePreview(this)">
+          <input type="hidden" class="variant-image-url" value="${variant.image}">
+          <div class="w-24 h-24 rounded-xl border-2 border-dashed border-border flex flex-col items-center justify-center bg-white overflow-hidden relative hover:border-primary transition-colors">
+            <img src="${variant.image}" class="w-full h-full object-cover data-preview-img ${hasImage ? '' : 'hidden'}">
+            <div class="data-placeholder flex flex-col items-center ${hasImage ? 'hidden' : ''}">
+              <i data-lucide="image-plus" class="w-6 h-6 text-secondary mb-1 group-hover/img:text-primary transition-colors"></i>
+              <span class="text-[10px] text-secondary font-medium">Upload</span>
+            </div>
+            <!-- Overlay on hover if image exists -->
+            <div class="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 ${hasImage ? 'group-hover/img:opacity-100' : ''} transition-opacity">
+              <i data-lucide="edit-2" class="w-5 h-5 text-white"></i>
+            </div>
+          </div>
+        </label>
+      </div>
+      
+      <!-- Inputs -->
+      <div class="flex-1 w-full grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label class="block text-xs font-medium text-secondary mb-1">Color / Name</label>
+          <input type="text" name="color_name[]" value="${variant.color}" placeholder="e.g. Matte Black" class="variant-color w-full px-3 py-2 bg-white border border-border rounded-lg text-sm focus:outline-none focus:border-primary">
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-secondary mb-1">Stock Quantity</label>
+          <input type="number" name="color_stock[]" value="${variant.stock}" min="0" class="variant-stock w-full px-3 py-2 bg-white border border-border rounded-lg text-sm focus:outline-none focus:border-primary">
+        </div>
+      </div>
+      
+      <!-- Remove Button -->
+      <button type="button" onclick="this.closest('.variant-row').remove()" class="absolute top-2 right-2 p-1.5 text-secondary hover:text-error hover:bg-error/10 rounded-lg transition-colors opacity-100 sm:opacity-0 sm:group-hover:opacity-100">
+        <i data-lucide="trash-2" class="w-4 h-4"></i>
+      </button>
+    `;
+    container.appendChild(row);
+    lucide.createIcons();
+  }
+
+
+
+  function handleImagePreview(input) {
+    if (input.files && input.files[0]) {
+      const reader = new FileReader();
+      const row = input.closest('.variant-row');
+      const imgPreview = row.querySelector('.data-preview-img');
+      const placeholder = row.querySelector('.data-placeholder');
+      const urlInput = row.querySelector('.variant-image-url');
+      
+      reader.onload = function(e) {
+        imgPreview.src = e.target.result;
+        imgPreview.classList.remove('hidden');
+        placeholder.classList.add('hidden');
+        urlInput.value = e.target.result; // Store base64 for saving
+        
+        // Add hover overlay logic
+        const label = row.querySelector('label');
+        const overlay = label.querySelector('.absolute.inset-0');
+        if(overlay) {
+          overlay.classList.add('group-hover/img:opacity-100');
+        }
+      }
+      reader.readAsDataURL(input.files[0]);
+    }
+  }
+
+  // --- Modal Logic ---
+
+  function openProductModal() {
+    document.getElementById('modalTitle').textContent = 'Add New Product';
+    document.getElementById('productForm').reset();
+    document.getElementById('inputId').value = '';
+    
+    // Clear dynamic rows
+    document.getElementById('specsContainer').innerHTML = '';
+    document.getElementById('variantsContainer').innerHTML = '';
+    
+    // Add initial empty rows
+    addSpecRowForInsert();
+    addVariantRowForInsert();
+    
+    showModal('productModal', 'productModalContent');
+  }
+
+  function closeProductModal() {
+    hideModal('productModal', 'productModalContent');
+  }
+
+  function closeEditProductModal() {
+    hideModal('productModalEditForm', 'productModalContent');
+  }
+
+
+  // --- Delete Logic ---
+  let itemToDelete = null;
+
+  function promptDelete(id, productName) {
+    itemToDelete = id;
+    
+    
+    document.getElementById('deleteProductId').value = id;
+    document.getElementById('deleteProductName').textContent = productName;
+    
+    showModal('deleteModal', 'deleteModalContent');
+  }
+
+  function closeDeleteModal() {
+    itemToDelete = null;
+    hideModal('deleteModal', 'deleteModalContent');
+  }
+
+
+
+
+  // --- Utility Functions ---
+  function toggleSidebar() {
+    const sidebar = document.getElementById('sidebar');
+    const overlay = document.getElementById('sidebarOverlay');
+    sidebar.classList.toggle('-translate-x-full');
+    overlay.classList.toggle('hidden');
+  }
+
+  function showModal(overlayId, contentId) {
+    const overlay = document.getElementById(overlayId);
+    const content = document.getElementById(contentId);
+    overlay.classList.remove('hidden');
+    // Small delay to allow display:block to apply before animating opacity
+    requestAnimationFrame(() => {
+      overlay.classList.remove('opacity-0');
+      content.classList.remove('scale-95');
+      content.classList.add('scale-100');
+    });
+  }
+
+  function hideModal(overlayId, contentId) {
+    const overlay = document.getElementById(overlayId);
+    const content = document.getElementById(contentId);
+    overlay.classList.add('opacity-0');
+    content.classList.remove('scale-100');
+    content.classList.add('scale-95');
+    setTimeout(() => {
+      overlay.classList.add('hidden');
+    }, 300); // Match transition duration
+  }
+
+  function showToast(msg, type = 'success') {
+    document.getElementById('toast')?.remove();
+    const t = document.createElement('div');
+    t.id = 'toast';
+    const bgClass = type === 'success' ? 'bg-foreground' : 'bg-error';
+    const icon = type === 'success' ? 'check-circle' : 'alert-circle';
+    
+    t.className = `fixed bottom-4 right-4 ${bgClass} text-white px-5 py-3 rounded-xl z-[200] flex items-center gap-3 shadow-xl transition-all duration-300 opacity-0 translate-y-4`;
+    t.innerHTML = `<i data-lucide="${icon}" class="w-5 h-5"></i><span class="font-medium text-sm">${msg}</span>`;
+    
+    document.body.appendChild(t);
+    lucide.createIcons();
+    
+    requestAnimationFrame(() => {
+      t.classList.remove('opacity-0', 'translate-y-4');
+    });
+    
+    setTimeout(() => {
+      t.classList.add('opacity-0', 'translate-y-4');
+      setTimeout(() => t.remove(), 300);
+    }, 3000);
+  }
+
+
+</script>
 
 </body>
 </html>
