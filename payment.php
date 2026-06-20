@@ -2,67 +2,88 @@
     require 'koneksi.php';
     include 'login_check.php';
 
-    
-
     if (empty($_SESSION['cart'])) {
-      header('Location: home.php');
+        header('Location: home.php');
+        exit;
     }
 
-    
-    
     if (isset($_POST['checkout'])) {
-      $items = $_SESSION['cart'];
-      $buyer = $_SESSION['buyer_id'];
-
-      
+        $items = $_SESSION['cart'];
+        $buyer = $_SESSION['buyer_id'];
+        
         $subtotal = 0;
         foreach ($items as $item) {
             $subtotal += (int)$item['price'] * (int)$item['qty'];
         }
 
-
         $shipping = 15;
         $discount = 19;
         $grand_total = ($subtotal + $shipping) - $discount;
 
-        $pre1 = $koneksi->prepare("INSERT INTO transaction (buyer_id, total, status) VALUES (?, ?, 'pending')");
-        $pre1->bind_param("ii", $buyer, $grand_total);
-        $pre1->execute();
-        $transaction_id = $koneksi->insert_id;
+        
+        $koneksi->begin_transaction();
 
-        $pre2 = $koneksi->prepare("INSERT INTO transaction_det (transaction_id, product_id, seller_id, qty, subtotal) VALUES (?, ?, ?, ?, ?)");
-        foreach ($items as $item) {
-                $product_id = (int)$item['product_id'];
-                $seller_id  = (int)$item['seller_id'];
-                $qty        = (int)$item['qty'];
-                $subtotal   = (int)$item['price'] * $qty;
+        try {
+            
+            $pre1 = $koneksi->prepare("INSERT INTO transaction (buyer_id, total, status) VALUES (?, ?, 'pending')");
+            $pre1->bind_param("ii", $buyer, $grand_total);
+            $pre1->execute();
+            $transaction_id = $koneksi->insert_id;
 
-              $pre2->bind_param("iiiii", $transaction_id, $product_id, $seller_id, $qty, $subtotal);
-              $pre2->execute();
+           
+            $pre2 = $koneksi->prepare("INSERT INTO transaction_det (transaction_id, product_id, color_varian_id, seller_id, qty, subtotal, discount, shipping_cost) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+            
+            
+            $pre_update_stock = $koneksi->prepare("UPDATE color_varian SET color_stok = color_stok - ? WHERE id = ?");
+
+            foreach ($items as $item) {
+                $product_id   = (int)$item['product_id'];
+                $seller_id    = (int)$item['seller_id'];
+                $variant_id   = (int)$item['variant_id']; 
+                $discount_item = 19; 
+                $shipping_cost = 15;
+                $qty          = (int)$item['qty'];
+                $subtotal_item = (int)$item['price'] * $qty;
+
+                
+                $pre2->bind_param("iiiiiiii", $transaction_id, $product_id, $variant_id, $seller_id, $qty, $subtotal_item, $discount_item, $shipping_cost);
+                $pre2->execute();
+
+                
+                $pre_update_stock->bind_param("ii", $qty, $variant_id);
+                $pre_update_stock->execute();
+            }
+
+            
+            $koneksi->commit();
+
+            $_SESSION['success'] = 'Payment Successfully!';
+            $_SESSION['cart'] = []; 
+            
+            header('Location: history_transaction.php');
+            exit;
+
+        } catch (Exception $e) {
+            
+            $koneksi->rollback();
+            $_SESSION['error'] = 'Transaction failed: ' . $e->getMessage();
+            header('Location: cart.php');
+            exit;
         }
-
-        $_SESSION['success'] = 'Payment Successfully!';
-        
-        
-        $_SESSION['cart'] = [];
-        
-        
-        header('Location: history_transaction.php');
-        exit;
-
     }
 
+    
     $items = $_SESSION['cart'];
-
     $subtotal = 0;
     foreach ($items as $item) {
         $subtotal += (int)$item['price'] * (int)$item['qty'];
     }
-    $shipping  = 15;
-    $discount  = 19;
-    $grandtotal     = ($subtotal + $shipping) - $discount;
+    $shipping    = 15;
+    $discount    = 19;
+    $grandtotal  = ($subtotal + $shipping) - $discount;
     
-    $shipping_address = $_SESSION['buyer_address'];
+    
+    $shipping_address = isset($_SESSION['buyer_address']) ? $_SESSION['buyer_address'] : '';
 ?>
 
 <!DOCTYPE html>

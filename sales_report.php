@@ -7,17 +7,22 @@
 
     // top selling products
     $q_products = $koneksi->prepare(
-        "SELECT p.name, p.price, cv.color_name, cv.product_image, c.name AS category_name,
-                SUM(td.qty) AS total_qty, SUM(td.subtotal) AS total_revenue
-         FROM transaction_det td
-         JOIN product p ON p.id = td.product_id
-         JOIN color_varian cv ON cv.product_id = p.id
-         JOIN category c ON c.id = p.category_id
-         WHERE td.seller_id = ?
-         GROUP BY td.product_id, cv.id
-         ORDER BY total_qty DESC
-         LIMIT 10"
-    );
+              "SELECT p.name, 
+                      p.price, 
+                      cv.color_name, 
+                      cv.product_image, 
+                      c.name AS category_name,
+                      SUM(td.qty) AS total_qty, 
+                      SUM(td.subtotal) AS total_revenue
+              FROM transaction_det td
+              JOIN color_varian cv ON cv.id = td.color_varian_id 
+              JOIN product p ON p.id = cv.product_id             
+              JOIN category c ON c.id = p.category_id
+              WHERE td.seller_id = ?
+              GROUP BY cv.id                                    
+              ORDER BY total_qty DESC
+              LIMIT 10"
+          );
     $q_products->bind_param("i", $seller_id);
     $q_products->execute();
     $top_products = $q_products->get_result()->fetch_all(MYSQLI_ASSOC);
