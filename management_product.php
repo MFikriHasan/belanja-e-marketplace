@@ -133,28 +133,28 @@
     <nav class="flex flex-col p-4 gap-2 overflow-y-auto flex-1">
       <p class="px-4 text-xs font-semibold text-secondary uppercase tracking-wider mb-2 mt-4">Menu</p>
       
-      <a href="/dashboard_page.html" class="group cursor-pointer">
+      <a href="/dashboard.php" class="group cursor-pointer">
         <div class="flex items-center rounded-xl p-3.5 gap-3 hover:bg-muted transition-all">
           <i data-lucide="layout-dashboard" class="size-5 text-secondary group-hover:text-foreground transition-colors"></i>
           <span class="font-medium text-secondary group-hover:text-foreground transition-colors">Dashboard</span>
         </div>
       </a>
       
-      <a href="/management_product.html" class="group active cursor-pointer">
+      <a href="/management_product.php" class="group active cursor-pointer">
         <div class="flex items-center rounded-xl p-3.5 gap-3 group-[.active]:bg-primary/10 group-[.active]:text-primary hover:bg-muted transition-all">
           <i data-lucide="package" class="size-5 text-secondary group-[.active]:text-primary group-hover:text-foreground transition-colors"></i>
           <span class="font-medium text-secondary group-[.active]:font-semibold group-[.active]:text-primary group-hover:text-foreground transition-colors">Products</span>
         </div>
       </a>
       
-      <a href="/management_transactions.html" class="group cursor-pointer">
+      <a href="/management_transactions.php" class="group cursor-pointer">
         <div class="flex items-center rounded-xl p-3.5 gap-3 hover:bg-muted transition-all">
           <i data-lucide="arrow-left-right" class="size-5 text-secondary group-hover:text-foreground transition-colors"></i>
           <span class="font-medium text-secondary group-hover:text-foreground transition-colors">Orders</span>
         </div>
       </a>
       
-      <a href="/sales_report.html" class="group cursor-pointer">
+      <a href="/sales_report.php" class="group cursor-pointer">
         <div class="flex items-center rounded-xl p-3.5 gap-3 hover:bg-muted transition-all">
           <i data-lucide="bar-chart-3" class="size-5 text-secondary group-hover:text-foreground transition-colors"></i>
           <span class="font-medium text-secondary group-hover:text-foreground transition-colors">Sales Report</span>
@@ -163,7 +163,7 @@
 
       <p class="px-4 text-xs font-semibold text-secondary uppercase tracking-wider mb-2 mt-4">Settings</p>
 
-      <a href="/seller_profile_update.html" class="group cursor-pointer">
+      <a href="/seller_profile.php" class="group cursor-pointer">
         <div class="flex items-center rounded-xl p-3.5 gap-3 hover:bg-muted transition-all">
           <i data-lucide="store" class="size-5 text-secondary group-hover:text-foreground transition-colors"></i>
           <span class="font-medium text-secondary group-hover:text-foreground transition-colors">Shop Profile</span>
@@ -173,7 +173,7 @@
 
     <!-- Logout Area -->
     <div class="p-4 border-t border-border">
-      <a href="#" class="group cursor-pointer">
+      <a href="logout.php" class="group cursor-pointer">
         <div class="flex items-center rounded-xl p-3.5 gap-3 hover:bg-error/10 transition-all">
           <i data-lucide="log-out" class="size-5 text-secondary group-hover:text-error transition-colors"></i>
           <span class="font-medium text-secondary group-hover:text-error transition-colors">Logout</span>

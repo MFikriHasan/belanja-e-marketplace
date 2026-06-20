@@ -66,7 +66,7 @@ try {
 
         foreach ($_POST['variant_colors'] as $index => $color_name) {
             $color_stock = (int)($_POST['variant_stocks'][$index] ?? 0);
-            $image_name = $_POST['old_variant_images'][$index] ?? ''; // Default pakai foto lama
+            $image_name = $_POST['old_variant_images'][$index] ?? ''; 
 
             
             if (isset($_FILES['variant_images']['name'][$index]) && $_FILES['variant_images']['error'][$index] === UPLOAD_ERR_OK) {
@@ -74,7 +74,7 @@ try {
                 $file_orig_name = $_FILES['variant_images']['name'][$index];
                 $file_ext = pathinfo($file_orig_name, PATHINFO_EXTENSION);
                 
-                // Buat nama file unik baru
+                
                 $image_name = 'variant_' . uniqid() . '.' . $file_ext;
                 $target_path = 'storage/image/' . $image_name;
 
