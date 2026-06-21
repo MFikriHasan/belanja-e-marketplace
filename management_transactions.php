@@ -1,6 +1,62 @@
 <?php
     require 'koneksi.php';
     include 'login_check.php';
+
+    $seller_id = $_SESSION['seller_id'];
+
+    // total pending shipping status
+    $query_pending = "SELECT COUNT(id) AS total_pending FROM transaction_det WHERE shipping_status = ?";
+    $pre = $koneksi->prepare($query_pending);
+    $pending = 'pending';
+    $pre->bind_param("s", $pending);
+    $pre->execute();
+    $result_pending = $pre->get_result()->fetch_assoc();
+    
+    // total shipped shipping status
+    $query_shipped = "SELECT COUNT(id) AS total_shipped FROM transaction_det WHERE shipping_status = ?";
+    $pre = $koneksi->prepare($query_shipped);
+    $shipped = 'shipped';
+    $pre->bind_param("s", $shipped);
+    $pre->execute();
+    $result_shipped = $pre->get_result()->fetch_assoc();
+
+
+    // total failed shipping status
+    $query_failed = "SELECT COUNT(id) AS total_failed FROM transaction_det WHERE shipping_status = ?";
+    $pre = $koneksi->prepare($query_failed);
+    $failed = 'failed';
+    $pre->bind_param("s", $failed);
+    $pre->execute();
+    $result_failed = $pre->get_result()->fetch_assoc();
+
+
+    // total completed shipping status
+    $query_completed = "SELECT COUNT(id) AS total_completed FROM transaction_det WHERE shipping_status = ?";
+    $pre = $koneksi->prepare($query_completed);
+    $completed = 'completed';
+    $pre->bind_param("s", $completed);
+    $pre->execute();
+    $result_completed = $pre->get_result()->fetch_assoc();
+
+    // order list query
+    $query_order = "SELECT 
+                    td.id,
+                    td.shipping_status,
+                    td.subtotal,
+                    b.avatar AS buyer_avatar,
+                    b.name AS buyer_name,
+                    t.date AS transaction_date
+                    FROM transaction_det td
+                    JOIN transaction t ON t.id = td.transaction_id
+                    JOIN buyer b ON b.id = t.buyer_id
+                    WHERE td.seller_id = ?
+                    ORDER BY (td.shipping_status = 'pending') DESC, t.date DESC";
+
+    $pre = $koneksi->prepare($query_order);
+    $pre->bind_param("i", $seller_id);
+    $pre->execute();
+    $orders = $pre->get_result()->fetch_all(MYSQLI_ASSOC);
+    
 ?>
 
 <!DOCTYPE html>
@@ -174,12 +230,6 @@
           <h3 class="font-bold text-2xl">Order Management</h3>
           <p class="text-secondary text-sm mt-1">Track and update customer orders.</p>
         </div>
-        <div class="flex items-center gap-3">
-          <button class="flex items-center gap-2 px-4 py-2.5 bg-white border border-border rounded-xl font-medium text-sm hover:bg-muted transition-colors shadow-sm">
-            <i data-lucide="download" class="size-4"></i>
-            Export CSV
-          </button>
-        </div>
       </div>
 
       <!-- Stats Grid -->
@@ -194,7 +244,7 @@
           </div>
           <div>
             <p class="text-secondary text-sm font-medium">Pending Orders</p>
-            <p class="font-bold text-2xl mt-1">24</p>
+            <p class="font-bold text-2xl mt-1"><?= $result_pending['total_pending'] ?></p>
           </div>
         </div>
 
@@ -209,7 +259,7 @@
           </div>
           <div>
             <p class="text-secondary text-sm font-medium">Shipped</p>
-            <p class="font-bold text-2xl mt-1">45</p>
+            <p class="font-bold text-2xl mt-1"><?= $result_shipped['total_shipped'] ?></p>
           </div>
         </div>
 
@@ -223,7 +273,7 @@
           </div>
           <div>
             <p class="text-secondary text-sm font-medium">Failed</p>
-            <p class="font-bold text-2xl mt-1">18</p>
+            <p class="font-bold text-2xl mt-1"><?= $result_failed['total_failed'] ?></p>
           </div>
         </div>
 
@@ -237,7 +287,7 @@
           </div>
           <div>
             <p class="text-secondary text-sm font-medium">Completed</p>
-            <p class="font-bold text-2xl mt-1">1,284</p>
+            <p class="font-bold text-2xl mt-1"><?= $result_completed['total_completed'] ?></p>
           </div>
         </div>
       </div>
@@ -280,195 +330,67 @@
                 <th class="p-4 w-12 text-center">
                   <input type="checkbox" id="selectAll" class="rounded border-border text-primary focus:ring-primary/20 cursor-pointer size-4" onchange="toggleSelectAll(this)">
                 </th>
-                <th class="p-4 font-medium">Order & Customer</th>
+              <th class="p-4 font-medium">Order & Customer</th>
                 <th class="p-4 font-medium hidden md:table-cell">Date</th>
-                <th class="p-4 font-medium hidden sm:table-cell">Total</th>
+                <th class="p-4 font-medium hidden sm:table-cell">SubTotal</th>
                 <th class="p-4 font-medium">Status</th>
                 <th class="p-4 font-medium">Actions</th>
               </tr>
             </thead>
             <tbody id="tableBody">
-              <!-- Row 1 -->
-              <tr class="border-b border-border hover:bg-muted/30 transition-colors group" data-item-id="ORD-1001" data-status="pending" data-searchable="ORD-1001 Sarah Jenkins sarah@example.com">
-                <td class="p-4 text-center">
-                  <input type="checkbox" class="row-checkbox rounded border-border text-primary focus:ring-primary/20 cursor-pointer size-4" onchange="updateSelectedCount()">
-                </td>
-                <td class="p-4">
-                  <div class="flex items-center gap-3">
-                    <div class="size-10 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-sm shrink-0">SJ</div>
-                    <div>
-                      <p class="font-semibold text-sm text-foreground">Sarah Jenkins</p>
-                      <p class="text-xs text-secondary font-mono mt-0.5">#ORD-1001</p>
+              <?php foreach ($orders as $row): ?>
+                <tr class="border-b border-border hover:bg-muted/30 transition-colors group">
+                  <td class="p-4 text-center">
+                    <input type="checkbox" class="row-checkbox rounded border-border text-primary focus:ring-primary/20 cursor-pointer size-4" onchange="updateSelectedCount()">
+                  </td>
+                  <td class="p-4">
+                    <div class="flex items-center gap-3">
+                      <img src="<?= !empty($product['buyer_avatar']) ? 'storage/image/' . $product['seller_logo'] : 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop'; ?>" class="size-10 rounded-full object-cover shrink-0">
+                      <div>
+                        <p class="font-semibold text-sm text-foreground"><?= $row['buyer_name'] ?></p>
+                        <p class="text-xs text-secondary font-mono mt-0.5">#ORD-<?= $row['id'] ?></p>
+                      </div>
                     </div>
-                  </div>
-                </td>
-                <td class="p-4 text-sm text-secondary hidden md:table-cell">Oct 24, 2023</td>
-                <td class="p-4 font-medium hidden sm:table-cell">$124.50</td>
-                <td class="p-4">
-                  <select class="status-select text-xs font-medium px-3 py-1.5 rounded-full border-none focus:ring-2 focus:ring-offset-1 focus:ring-primary/30 bg-warning/10 text-warning" onchange="updateRowStatus(this)">
-                    <option value="pending" selected>Pending</option>
-                    <option value="shipped">Shipped</option>
-                    <option value="success">Success</option>
-                    <option value="failed">Failed</option>
-                  </select>
-                </td>
-                <td class="p-4 text-right">
-                  <div class="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button onclick="viewTransaction('ORD-1001')" class="p-2 text-secondary hover:text-primary hover:bg-primary/10 rounded-lg transition-colors" title="View Details">
-                      <i data-lucide="eye" class="size-4"></i>
-                    </button>
-                    <button onclick="showDeleteModal('ORD-1001')" class="p-2 text-secondary hover:text-error hover:bg-error/10 rounded-lg transition-colors" title="Delete">
-                      <i data-lucide="trash-2" class="size-4"></i>
-                    </button>
-                  </div>
-                </td>
-              </tr>
-              
-              <!-- Row 2 -->
-              <tr class="border-b border-border hover:bg-muted/30 transition-colors group" data-item-id="ORD-1002" data-status="processing" data-searchable="ORD-1002 Michael Chen michael@example.com">
-                <td class="p-4 text-center">
-                  <input type="checkbox" class="row-checkbox rounded border-border text-primary focus:ring-primary/20 cursor-pointer size-4" onchange="updateSelectedCount()">
-                </td>
-                <td class="p-4">
-                  <div class="flex items-center gap-3">
-                    <img src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop" class="size-10 rounded-full object-cover shrink-0">
-                    <div>
-                      <p class="font-semibold text-sm text-foreground">Michael Chen</p>
-                      <p class="text-xs text-secondary font-mono mt-0.5">#ORD-1002</p>
+                  </td>
+                  <td class="p-4 text-sm text-secondary hidden md:table-cell"><?= date('d M Y', strtotime($row['transaction_date'])) ?></td>
+                  <td class="p-4 font-medium hidden sm:table-cell">$<?= number_format($row['subtotal'], 0, ",", ".") ?></td>
+                  <td class="p-4">
+                    <select class="status-select text-xs font-medium px-3 py-1.5 rounded-full border-none     focus:ring-2 focus:ring-offset-1 focus:ring-primary/30 
+                        <?= ($row['shipping_status'] == 'pending') ? 'bg-warning/10 text-warning' : '' ?>
+                        <?= ($row['shipping_status'] == 'shipped') ? 'bg-primary/10 text-primary' : '' ?>
+                        <?= ($row['shipping_status'] == 'completed') ? 'bg-success/10 text-success' : '' ?>
+                        <?= ($row['shipping_status'] == 'failed') ? 'bg-error/10 text-error' : '' ?>" 
+                        onchange="updateRowStatus(this)">
+                        
+                        <option value="pending" <?= ($row['shipping_status'] == 'pending') ? 'selected' : '' ?>>Pending</option>
+                        <option value="shipped" <?= ($row['shipping_status'] == 'shipped') ? 'selected' : '' ?>>Shipped</option>
+                        <option value="completed" <?= ($row['shipping_status'] == 'completed') ? 'selected' : '' ?>>Completed</option>
+                        <option value="failed" <?= ($row['shipping_status'] == 'failed') ? 'selected' : '' ?>>Failed</option>
+                      </select>
+                  </td>
+                  <td class="p-4 text-right">
+                    <div class="flex items-center  gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button onclick="viewTransaction('ORD-1002')" class="p-2 text-secondary hover:text-primary hover:bg-primary/10 rounded-lg transition-colors" title="View Details">
+                        <i data-lucide="eye" class="size-4"></i>
+                      </button>
+                      <button onclick="showDeleteModal('ORD-1002')" class="p-2 text-secondary hover:text-error hover:bg-error/10 rounded-lg transition-colors" title="Delete">
+                        <i data-lucide="trash-2" class="size-4"></i>
+                      </button>
                     </div>
-                  </div>
-                </td>
-                <td class="p-4 text-sm text-secondary hidden md:table-cell">Oct 24, 2023</td>
-                <td class="p-4 font-medium hidden sm:table-cell">$89.00</td>
-                <td class="p-4">
-                  <select class="status-select text-xs font-medium px-3 py-1.5 rounded-full border-none focus:ring-2 focus:ring-offset-1 focus:ring-primary/30 bg-primary/10 text-primary" onchange="updateRowStatus(this)">
-                    <option value="pending">Pending</option>
-                    <option value="shipped" selected>Shipped</option>
-                    <option value="success">Success</option>
-                    <option value="failed">Failed</option>
-                  </select>
-                </td>
-                <td class="p-4 text-right">
-                  <div class="flex items-center  gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button onclick="viewTransaction('ORD-1002')" class="p-2 text-secondary hover:text-primary hover:bg-primary/10 rounded-lg transition-colors" title="View Details">
-                      <i data-lucide="eye" class="size-4"></i>
-                    </button>
-                    <button onclick="showDeleteModal('ORD-1002')" class="p-2 text-secondary hover:text-error hover:bg-error/10 rounded-lg transition-colors" title="Delete">
-                      <i data-lucide="trash-2" class="size-4"></i>
-                    </button>
-                  </div>
-                </td>
-              </tr>
-
-              <!-- Row 3 -->
-              <tr class="border-b border-border hover:bg-muted/30 transition-colors group" data-item-id="ORD-1003" data-status="shipped" data-searchable="ORD-1003 Emma Wilson emma@example.com">
-                <td class="p-4 text-center">
-                  <input type="checkbox" class="row-checkbox rounded border-border text-primary focus:ring-primary/20 cursor-pointer size-4" onchange="updateSelectedCount()">
-                </td>
-                <td class="p-4">
-                  <div class="flex items-center gap-3">
-                    <img src="https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100&h=100&fit=crop" class="size-10 rounded-full object-cover shrink-0">
-                    <div>
-                      <p class="font-semibold text-sm text-foreground">Emma Wilson</p>
-                      <p class="text-xs text-secondary font-mono mt-0.5">#ORD-1003</p>
-                    </div>
-                  </div>
-                </td>
-                <td class="p-4 text-sm text-secondary hidden md:table-cell">Oct 23, 2023</td>
-                <td class="p-4 font-medium hidden sm:table-cell">$342.20</td>
-                <td class="p-4">
-                  <select class="status-select text-xs font-medium px-3 py-1.5 rounded-full border-none focus:ring-2 focus:ring-offset-1 focus:ring-primary/30 bg-success/10 text-success" onchange="updateRowStatus(this)">
-                    <option value="pending">Pending</option>
-                    <option value="shipped">Shipped</option>
-                    <option value="success" selected>Success</option>
-                    <option value="failed">Failed</option>
-                  </select>
-                </td>
-                <td class="p-4 text-right">
-                  <div class="flex items-center  gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button onclick="viewTransaction('ORD-1003')" class="p-2 text-secondary hover:text-primary hover:bg-primary/10 rounded-lg transition-colors" title="View Details">
-                      <i data-lucide="eye" class="size-4"></i>
-                    </button>
-                    <button onclick="showDeleteModal('ORD-1003')" class="p-2 text-secondary hover:text-error hover:bg-error/10 rounded-lg transition-colors" title="Delete">
-                      <i data-lucide="trash-2" class="size-4"></i>
-                    </button>
-                  </div>
-                </td>
-              </tr>
-
-              <!-- Row 4 -->
-              <tr class="border-b border-border hover:bg-muted/30 transition-colors group" data-item-id="ORD-1004" data-status="completed" data-searchable="ORD-1004 David Rodriguez david@example.com">
-                <td class="p-4 text-center">
-                  <input type="checkbox" class="row-checkbox rounded border-border text-primary focus:ring-primary/20 cursor-pointer size-4" onchange="updateSelectedCount()">
-                </td>
-                <td class="p-4">
-                  <div class="flex items-center gap-3">
-                    <div class="size-10 rounded-full bg-success/10 text-success flex items-center justify-center font-bold text-sm shrink-0">DR</div>
-                    <div>
-                      <p class="font-semibold text-sm text-foreground">David Rodriguez</p>
-                      <p class="text-xs text-secondary font-mono mt-0.5">#ORD-1004</p>
-                    </div>
-                  </div>
-                </td>
-                <td class="p-4 text-sm text-secondary hidden md:table-cell">Oct 22, 2023</td>
-                <td class="p-4 font-medium hidden sm:table-cell">$56.00</td>
-                <td class="p-4">
-                  <select class="status-select text-xs font-medium px-3 py-1.5 rounded-full border-none focus:ring-2 focus:ring-offset-1 focus:ring-primary/30 bg-warning/10 text-warning" onchange="updateRowStatus(this)">
-                    <option value="pending" selected>Pending</option>
-                    <option value="shipped">shipped</option>
-                    <option value="success">Success</option>
-                    <option value="failed">Failed</option>
-                  </select>
-                </td>
-                <td class="p-4 text-right">
-                  <div class="flex items-center  gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button onclick="viewTransaction('ORD-1004')" class="p-2 text-secondary hover:text-primary hover:bg-primary/10 rounded-lg transition-colors" title="View Details">
-                      <i data-lucide="eye" class="size-4"></i>
-                    </button>
-                    <button onclick="showDeleteModal('ORD-1004')" class="p-2 text-secondary hover:text-error hover:bg-error/10 rounded-lg transition-colors" title="Delete">
-                      <i data-lucide="trash-2" class="size-4"></i>
-                    </button>
-                  </div>
-                </td>
-              </tr>
-
-              <!-- Row 5 -->
-              <tr class="hover:bg-muted/30 transition-colors group" data-item-id="ORD-1005" data-status="pending" data-searchable="ORD-1005 Lisa Wang lisa@example.com">
-                <td class="p-4 text-center">
-                  <input type="checkbox" class="row-checkbox rounded border-border text-primary focus:ring-primary/20 cursor-pointer size-4" onchange="updateSelectedCount()">
-                </td>
-                <td class="p-4">
-                  <div class="flex items-center gap-3">
-                    <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop" class="size-10 rounded-full object-cover shrink-0">
-                    <div>
-                      <p class="font-semibold text-sm text-foreground">Lisa Wang</p>
-                      <p class="text-xs text-secondary font-mono mt-0.5">#ORD-1005</p>
-                    </div>
-                  </div>
-                </td>
-                <td class="p-4 text-sm text-secondary hidden md:table-cell">Oct 24, 2023</td>
-                <td class="p-4 font-medium hidden sm:table-cell">$890.00</td>
-                <td class="p-4">
-                  <select class="status-select text-xs font-medium px-3 py-1.5 rounded-full border-none focus:ring-2 focus:ring-offset-1 focus:ring-primary/30 bg-error/10 text-error" onchange="updateRowStatus(this)">
-                    <option value="pending">Pending</option>
-                    <option value="shipped">Shipped</option>
-                    <option value="success">Success</option>
-                    <option value="failed" selected>Failed</option>
-                  </select>
-                </td>
-                <td class="p-4 text-right">
-                  <div class="flex items-center  gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button onclick="viewTransaction('ORD-1005')" class="p-2 text-secondary hover:text-primary hover:bg-primary/10 rounded-lg transition-colors" title="View Details">
-                      <i data-lucide="eye" class="size-4"></i>
-                    </button>
-                    <button onclick="showDeleteModal('ORD-1005')" class="p-2 text-secondary hover:text-error hover:bg-error/10 rounded-lg transition-colors" title="Delete">
-                      <i data-lucide="trash-2" class="size-4"></i>
-                    </button>
-                  </div>
-                </td>
-              </tr>
+                  </td>
+                </tr>
+              <?php endforeach; ?>
             </tbody>
           </table>
+          <?php if (empty($orders)): ?>
+            <div  class="flex flex-col items-center justify-center py-16 bg-white rounded-2xl border border-border text-center px-4">
+              <div class="w-16 h-16 bg-muted rounded-full flex items-center justify-center mb-4">
+                <i data-lucide="package-x" class="w-8 h-8 text-secondary"></i>
+              </div>
+              <h3 class="text-lg font-bold mb-1">No orders waiting in line yet.</h3>
+              <p class="text-secondary text-sm mb-4">Boost your visibility! Running a limited-time discount or updating your product keywords can help catch a customer's eye.</p>
+            </div>
+          <?php endif; ?>
         </div>
         
         <!-- Pagination -->

@@ -25,7 +25,7 @@
 
         try {
             
-            $pre1 = $koneksi->prepare("INSERT INTO transaction (buyer_id, total, status) VALUES (?, ?, 'pending')");
+            $pre1 = $koneksi->prepare("INSERT INTO transaction (buyer_id, grandtotal) VALUES (?, ?)");
             $pre1->bind_param("ii", $buyer, $grand_total);
             $pre1->execute();
             $transaction_id = $koneksi->insert_id;
@@ -44,6 +44,7 @@
                 $shipping_cost = 15;
                 $qty          = (int)$item['qty'];
                 $subtotal_item = (int)$item['price'] * $qty;
+
 
                 
                 $pre2->bind_param("iiiiiiii", $transaction_id, $product_id, $variant_id, $seller_id, $qty, $subtotal_item, $discount_item, $shipping_cost);

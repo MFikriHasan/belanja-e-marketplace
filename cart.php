@@ -662,6 +662,23 @@
   });
 </script>
 
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    
+    <?php if (!empty($_SESSION['error'])): ?>
+        
+        
+        showToast(<?php echo json_encode($_SESSION['error']); ?>, 'error');
+        
+        <?php 
+            
+            unset($_SESSION['error']); 
+        ?>
+        
+    <?php endif; ?>
+});
+</script>
+
 
 </body>
 </html>
