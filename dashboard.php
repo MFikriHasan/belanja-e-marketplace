@@ -348,6 +348,14 @@
 
             </tbody>
           </table>
+          <?php if (empty($recent_sales)): ?>
+              <div class="flex flex-col items-center justify-center py-16 bg-white rounded-2xl border border-border text-center px-4">
+                <div class="w-16 h-16 bg-muted rounded-full flex items-center justify-center mb-4">
+                  <i data-lucide="receipt" class="w-8 h-8 text-secondary"></i> </div>
+                <h3 class="text-base font-bold text-foreground mb-1">No recent sales yet</h3>
+                <p class="text-secondary text-sm max-w-xs mb-4">Your latest store transactions and order updates will show up right here.</p>
+              </div>
+          <?php endif; ?>
         </div>
         
         <!-- Pagination -->

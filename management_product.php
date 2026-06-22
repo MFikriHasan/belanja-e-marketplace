@@ -309,7 +309,7 @@
           <i data-lucide="package-x" class="w-8 h-8 text-secondary"></i>
         </div>
         <h3 class="text-lg font-bold mb-1">No products found</h3>
-        <p class="text-secondary text-sm mb-4">Try adjusting your search or filters.</p>
+        <p class="text-secondary text-sm mb-4">Try adjusting your search or filters or add some products.</p>
         <a href="management_product.php" class="text-primary font-medium hover:underline">Clear all filters</a>
       </div>
       <?php else: ?>
