@@ -1,6 +1,7 @@
 <?php
     require 'koneksi.php';
     include 'login_check.php';
+    check_access_control('seller');
 
     $seller_id = $_SESSION['seller_id'];
 
@@ -233,17 +234,9 @@
         
 
         <!-- User Profile -->
-        <div class="flex items-center gap-3 cursor-pointer hover:opacity-80 transition-opacity">
-          <div class="text-right hidden sm:block">
-            <p class="font-semibold text-sm leading-tight">Blyad Store</p>
-            <p class="text-secondary text-xs">blyad.store@example.com</p>
-          </div>
-          <div class="relative">
-            <img src="https://images.unsplash.com/photo-1560179707-f14e90ef3623?w=100&h=100&fit=crop" alt="User Avatar" class="size-11 rounded-xl object-cover ring-2 ring-border">
-            <!-- Online Status Indicator -->
-            <span class="absolute bottom-0 right-0 size-3.5 bg-success border-2 border-white rounded-full" title="Online"></span>
-          </div>
-        </div>
+        <?php
+          include 'seller_header_profile.php';
+        ?>
       </div>
     </header>
 

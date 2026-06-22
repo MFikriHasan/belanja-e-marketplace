@@ -1,6 +1,7 @@
 <?php
   require 'koneksi.php';
   include 'login_check.php';
+  check_access_control('seller');
 
   $product_id = (int)$_GET['id'];
   $seller_id = $_SESSION['seller_id'];

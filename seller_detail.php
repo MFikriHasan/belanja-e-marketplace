@@ -1,3 +1,8 @@
+<?php
+  require 'koneksi.php';
+  include 'login_check.php';
+  check_access_control('buyer');
+?>
 <!DOCTYPE html>
 <html lang="en">
 <head>

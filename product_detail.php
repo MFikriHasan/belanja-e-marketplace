@@ -3,7 +3,7 @@
   require 'koneksi.php';
   include 'login_check.php';
 
-  
+  check_access_control('buyer');
   if (isset($_POST['add_to_cart'])) {
 
     $post_product_id = (int)($_POST['product_id'] ?? 0);

@@ -1,8 +1,9 @@
 <?php
 require 'koneksi.php';
 
-
 include 'login_check.php';
+
+check_access_control('buyer');
 
 // categories
 
@@ -14,7 +15,17 @@ $categories = $exec->fetch_all(MYSQLI_ASSOC);
 
 // new releases
 
-$sqlN = "SELECT * FROM product LIMIT 5";
+$sqlN = "SELECT p.id,
+          p.name,
+          p.price,
+          MIN(cv.product_image) AS product_image,
+          COALESCE(SUM(td.qty), 0) AS sold_total
+          FROM product p
+          LEFT JOIN color_varian cv ON p.id = cv.product_id
+          LEFT JOIN transaction_det td ON cv.id = td.color_varian_id
+          GROUP BY p.id
+          ORDER BY p.id DESC
+          LIMIT 5";
 
 $exec = $koneksi->execute_query($sqlN);
 
@@ -30,9 +41,12 @@ $sellers = $exec->fetch_all(MYSQLI_ASSOC);
 
 // most picked products
 
-$sqlN = "SELECT p.*, SUM(td.qty) as total_terjual 
+$sqlN = "SELECT p.*, 
+        COALESCE(SUM(td.qty), 0) as total_terjual, 
+        MIN(cv.product_image) as product_image
          FROM product p
-         JOIN transaction_det td ON p.id = td.product_id
+         LEFT JOIN color_varian cv ON p.id = cv.product_id
+         LEFT JOIN transaction_det td ON cv.id = td.color_varian_id
          GROUP BY p.id
          ORDER BY total_terjual DESC 
          LIMIT 5";
@@ -135,7 +149,7 @@ $most_picked = $exec->fetch_all(MYSQLI_ASSOC);
         <a href="/product_detail.php?id=<?= $row['id'] ?>">
           <div class="bg-white rounded-2xl border border-border overflow-hidden hover:shadow-lg hover:border-primary/30 transition-all cursor-pointer group flex flex-col" onclick="viewProduct('p1')">
             <div class="aspect-square bg-muted relative overflow-hidden">
-              <img src="https://images.unsplash.com/photo-1618366712010-f4ae9c647dcb?w=400&h=400&fit=crop" alt="Headphones" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
+              <img src="<?= !empty($row['product_image']) ? 'storage/image/' . $row['product_image'] : 'https://images.unsplash.com/photo-1618366712010-f4ae9c647dcb?w=400&h=400&fit=crop' ?>" alt="Headphones" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
               <div class="absolute top-2 left-2 bg-primary text-white text-[10px] font-bold px-2 py-1 rounded flex items-center gap-1 shadow-sm">
                 <i data-lucide="check-circle-2" class="h-3 w-3"></i> Official
               </div>
@@ -149,7 +163,7 @@ $most_picked = $exec->fetch_all(MYSQLI_ASSOC);
                     <i data-lucide="star" class="h-3 w-3 fill-warning text-warning"></i>
                     <span class="font-medium text-foreground">4.9</span>
                     <span class="mx-0.5">•</span>
-                    <span><?= $row['total_terjual'] ?> Sold</span>
+                    <span><?= $row['total_terjual']  ?> Sold</span>
                   </div>
                 </div>
               </div>
@@ -205,7 +219,7 @@ $most_picked = $exec->fetch_all(MYSQLI_ASSOC);
         <a href="/product_detail.php?id=<?= $row['id'] ?>">
             <div class="bg-white rounded-2xl border border-border overflow-hidden hover:shadow-lg hover:border-primary/30 transition-all cursor-pointer group flex flex-col">
               <div class="aspect-square bg-muted relative overflow-hidden">
-                <img src="https://images.unsplash.com/photo-1583394838336-acd977736f90?w=400&h=400&fit=crop" alt="Earbuds" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
+                <img src="<?= !empty($row['product_image']) ? 'storage/image/' . $row['product_image'] : 'https://images.unsplash.com/photo-1583394838336-acd977736f90?w=400&h=400&fit=crop' ?>" alt="Earbuds" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
                 <div class="absolute top-2 left-2 bg-success text-white text-[10px] font-bold px-2 py-1 rounded shadow-sm">NEW</div>
               </div>
               <div class="p-3 sm:p-4 flex flex-col flex-1">
@@ -214,10 +228,10 @@ $most_picked = $exec->fetch_all(MYSQLI_ASSOC);
                   <p class="text-lg font-bold text-primary mb-2">$<?= number_format($row['price'], 0, ',', '.') ?></p>
                   <div class="flex items-center justify-between">
                     <div class="flex items-center gap-1 text-xs text-secondary">
-                      <i data-lucide="star" class="h-3 w-3 fill-muted text-muted"></i>
-                      <span class="font-medium text-foreground">0.0</span>
+                      <i data-lucide="star" class="h-3 w-3 fill-warning text-warning"></i>
+                      <span class="font-medium text-foreground">4.0</span>
                       <span class="mx-0.5">•</span>
-                      <span>0 sold</span>
+                      <span><?= $row['sold_total']  ?> Sold</span>
                     </div>
                   </div>
                 </div>
@@ -272,6 +286,17 @@ $most_picked = $exec->fetch_all(MYSQLI_ASSOC);
   
   document.addEventListener('DOMContentLoaded', () => {
     lucide.createIcons();
+    <?php if (!empty($_SESSION['success'])): ?>
+          
+          
+          showToast(<?php echo json_encode($_SESSION['success']); ?>, 'success');
+          
+          <?php 
+              
+              unset($_SESSION['success']); 
+          ?>
+          
+      <?php endif; ?>
   });
 
   
@@ -292,35 +317,38 @@ $most_picked = $exec->fetch_all(MYSQLI_ASSOC);
 
   
 
-  function addToCart() {
-    closeProductModal();
-    showToast('Added to cart successfully!', 'success');
-  }
+  
 
   // Toast Notification System
-  function showToast(msg, type='success') {
+  function showToast(msg, type = 'success') {
     document.getElementById('toast')?.remove();
-    const t = document.createElement('div');
-    t.id = 'toast';
-    const bgClass = type === 'success' ? 'bg-gray-900' : 'bg-red-500';
+    
+    const toast = document.createElement('div');
+    toast.id = 'toast';
+    
+    const bgClass = type === 'success' ? 'bg-success' : 'bg-error';
     const icon = type === 'success' ? 'check-circle' : 'alert-circle';
     
-    t.className = `fixed bottom-4 left-1/2 -translate-x-1/2 ${bgClass} text-white px-6 py-3 rounded-full shadow-xl z-[200] transition-all duration-300 opacity-0 translate-y-[20px] flex items-center gap-2 text-sm font-medium`;
-    t.innerHTML = `<i data-lucide="${icon}" class="size-4"></i> ${msg}`;
+    toast.className = `fixed bottom-6 right-6 ${bgClass} text-white px-5 py-4 rounded-xl shadow-2xl z-50 flex items-center gap-3 transition-all duration-300 opacity-0 translate-y-4`;
     
-    document.body.appendChild(t);
-    lucide.createIcons({ root: t });
+    toast.innerHTML = `
+      <i data-lucide="${icon}" class="size-5"></i>
+      <span class="font-medium text-sm">${msg}</span>
+    `;
     
+    document.body.appendChild(toast);
+    lucide.createIcons();
+    
+    // Animate in
     requestAnimationFrame(() => {
-      t.classList.remove('opacity-0', 'translate-y-[20px]');
-      t.classList.add('opacity-100', 'translate-y-0');
+      toast.classList.remove('opacity-0', 'translate-y-4');
     });
     
+    // Auto remove
     setTimeout(() => {
-      t.classList.add('opacity-0', 'translate-y-[20px]');
-      t.classList.remove('opacity-100', 'translate-y-0');
-      setTimeout(() => t.remove(), 300);
-    }, 3000);
+      toast.classList.add('opacity-0', 'translate-y-4');
+      setTimeout(() => toast.remove(), 300);
+    }, 4000);
   }
 
   // Close modals on outside click

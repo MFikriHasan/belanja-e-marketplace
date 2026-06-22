@@ -1,5 +1,70 @@
 <?php
+    require 'koneksi.php';
     include 'login_check.php';
+    check_access_control('seller');
+
+    $seller_id = $_SESSION['seller_id'];
+
+    // stats total revenue, orders  dan total customers
+    $q_stats = "SELECT COALESCE(SUM(td.subtotal), 0) AS total_revenue,
+                COUNT(DISTINCT td.qty) AS total_orders,
+                COUNT(DISTINCT t.buyer_id) AS total_customers
+                FROM transaction_det td
+                JOIN transaction t ON t.id = td.transaction_id
+                WHERE td.seller_id = ?";
+    $pre = $koneksi->prepare($q_stats);
+    $pre->bind_param("i", $seller_id);
+    $pre->execute();
+    $result_stats = $pre->get_result()->fetch_assoc();
+    
+    // stats active listings
+
+    $q_active = "SELECT 
+                    COUNT(CASE WHEN p_total.total_all_stock >= 30 THEN 1 END) AS active_listings
+                    FROM (
+                    SELECT p.id AS product_id, COALESCE(SUM(cv.color_stok), 0) AS total_all_stock
+                    FROM product p
+                    LEFT JOIN color_varian cv ON p.id = cv.product_id
+                    WHERE p.seller_id = ?
+                    GROUP BY p.id
+                ) AS p_total";
+
+    $pre = $koneksi->prepare($q_active);
+    $pre->bind_param("i", $seller_id);
+    $pre->execute();
+    $result_active_listings = $pre->get_result()->fetch_assoc();
+
+    $active_listings = $result_active_listings['active_listings'];
+    $total_revenue = $result_stats['total_revenue'];
+    $total_orders = $result_stats['total_orders'];
+    $total_customers = $result_stats['total_customers'];
+
+    // latest transaction
+  $q_transaction = $koneksi->prepare(
+      "SELECT 
+          t.id AS order_id,
+          p.name AS product_name, 
+          cv.color_name AS variant, 
+          cv.product_image, 
+          b.name AS buyer_name,
+          b.email AS buyer_email,
+          t.date AS transaction_date,
+          td.subtotal AS amount,
+          td.shipping_status AS status
+      FROM transaction_det td
+      JOIN transaction t ON t.id = td.transaction_id
+      JOIN color_varian cv ON cv.id = td.color_varian_id 
+      JOIN product p ON p.id = cv.product_id            
+      JOIN buyer b ON b.id = t.buyer_id
+      WHERE td.seller_id = ?
+      ORDER BY t.date DESC, td.id DESC
+      LIMIT 5"                                
+  );
+
+  $q_transaction->bind_param("i", $seller_id);
+  $q_transaction->execute();
+  $recent_sales = $q_transaction->get_result()->fetch_all(MYSQLI_ASSOC);
+
 ?>
 
 <!DOCTYPE html>
@@ -138,18 +203,10 @@
 
         
 
-        <!-- User Profile -->
-        <div class="flex items-center gap-3 cursor-pointer hover:opacity-80 transition-opacity">
-          <div class="text-right hidden sm:block">
-            <p class="font-semibold text-sm leading-tight">Blyad Store</p>
-            <p class="text-secondary text-xs">blyad.store@example.com</p>
-          </div>
-          <div class="relative">
-            <img src="https://images.unsplash.com/photo-1560179707-f14e90ef3623?w=100&h=100&fit=crop" alt="User Avatar" class="size-11 rounded-xl object-cover ring-2 ring-border">
-            <!-- Online Status Indicator -->
-            <span class="absolute bottom-0 right-0 size-3.5 bg-success border-2 border-white rounded-full" title="Online"></span>
-          </div>
-        </div>
+        <!-- Seller Profile -->
+        <?php
+          include 'seller_header_profile.php';
+        ?>
       </div>
     </header>
 
@@ -170,7 +227,7 @@
             </div>
           </div>
           <div>
-            <p class="font-bold text-3xl mb-1">$24.5K</p>
+            <p class="font-bold text-3xl mb-1">$<?= number_format($total_revenue, 0, ",", ".") ?></p>
             <div class="flex items-center gap-1 text-sm">
               <span class="text-success flex items-center font-medium"><i data-lucide="trending-up" class="size-4 mr-1"></i> +12.5%</span>
               <span class="text-secondary">vs last month</span>
@@ -189,7 +246,7 @@
             </div>
           </div>
           <div>
-            <p class="font-bold text-3xl mb-1">1,245</p>
+            <p class="font-bold text-3xl mb-1"><?= number_format($total_orders, 0, ",", ".") ?></p>
             <div class="flex items-center gap-1 text-sm">
               <span class="text-success flex items-center font-medium"><i data-lucide="trending-up" class="size-4 mr-1"></i> +8.2%</span>
               <span class="text-secondary">vs last month</span>
@@ -204,11 +261,11 @@
               <div class="size-12 bg-success/10 rounded-xl flex items-center justify-center">
                 <i data-lucide="package" class="size-6 text-success"></i>
               </div>
-              <p class="font-medium text-secondary">Active Products</p>
+              <p class="font-medium text-secondary">Active Listings</p>
             </div>
           </div>
           <div>
-            <p class="font-bold text-3xl mb-1">342</p>
+            <p class="font-bold text-3xl mb-1"><?= number_format($active_listings, 0, ",", ".") ?></p>
             <div class="flex items-center gap-1 text-sm">
               <span class="text-secondary flex items-center font-medium"><i data-lucide="minus" class="size-4 mr-1"></i> 0.0%</span>
               <span class="text-secondary">vs last month</span>
@@ -227,7 +284,7 @@
             </div>
           </div>
           <div>
-            <p class="font-bold text-3xl mb-1">8.4K</p>
+            <p class="font-bold text-3xl mb-1"><?= number_format($total_customers, 0, ",", ".") ?></p>
             <div class="flex items-center gap-1 text-sm">
               <span class="text-error flex items-center font-medium"><i data-lucide="trending-down" class="size-4 mr-1"></i> -2.4%</span>
               <span class="text-secondary">vs last month</span>
@@ -260,125 +317,34 @@
             </thead>
             <tbody class="divide-y divide-border">
               
-              <!-- Row 1 -->
-              <tr class="hover:bg-muted/50 transition-colors group" data-item-id="ORD-001">
-                <td class="p-4 font-medium text-sm">#ORD-001</td>
-                <td class="p-4">
-                  <div class="flex items-center gap-3">
-                    <img src="https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=100&h=100&fit=crop" class="size-10 rounded-lg object-cover border border-border">
-                    <div>
-                      <p class="font-semibold text-sm">Smart Watch Pro</p>
-                      <p class="text-xs text-secondary">Variant : White</p>
+              <?php foreach ($recent_sales as $row): ?>
+                <tr class="hover:bg-muted/50 transition-colors group" >
+                  <td class="p-4 font-medium text-sm">#ORD-<?= $row['order_id'] ?></td>
+                  <td class="p-4">
+                    <div class="flex items-center gap-3">
+                      <img src="<?= !empty($row['product_image']) ? 'storage/image/' . $row['product_image'] : 'https://images.unsplash.com/photo-1618366712010-f4ae9c647dcb?w=400&h=400&fit=crop' ?>" class="size-10 rounded-lg object-cover border border-border">
+                      <div>
+                        <p class="font-semibold text-sm"><?= $row['product_name'] ?></p>
+                        <p class="text-xs text-secondary">Variant : <?= $row['variant'] ?></p>
+                      </div>
                     </div>
-                  </div>
-                </td>
-                <td class="p-4 hidden md:table-cell">
-                  <p class="font-medium text-sm">Sarah Jenkins</p>
-                  <p class="text-xs text-secondary">sarah.j@example.com</p>
-                </td>
-                <td class="p-4 hidden lg:table-cell text-sm text-secondary">Oct 24, 2023</td>
-                <td class="p-4 font-semibold text-sm">$299.00</td>
-                <td class="p-4">
-                  <span class="bg-success/10 text-success text-xs font-semibold px-2.5 py-1 rounded-full border border-success/20">Completed</span>
-                </td>
-                
-              </tr>
-
-              <!-- Row 2 -->
-              <tr class="hover:bg-muted/50 transition-colors group" data-item-id="ORD-002">
-                <td class="p-4 font-medium text-sm">#ORD-002</td>
-                <td class="p-4">
-                  <div class="flex items-center gap-3">
-                    <img src="https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=100&h=100&fit=crop" class="size-10 rounded-lg object-cover border border-border">
-                    <div>
-                      <p class="font-semibold text-sm">Wireless Headphones</p>
-                      <p class="text-xs text-secondary">Variant : Black</p>
-                    </div>
-                  </div>
-                </td>
-                <td class="p-4 hidden md:table-cell">
-                  <p class="font-medium text-sm">Michael Chen</p>
-                  <p class="text-xs text-secondary">m.chen@example.com</p>
-                </td>
-                <td class="p-4 hidden lg:table-cell text-sm text-secondary">Oct 24, 2023</td>
-                <td class="p-4 font-semibold text-sm">$149.50</td>
-                <td class="p-4">
-                  <span class="bg-warning/10 text-warning text-xs font-semibold px-2.5 py-1 rounded-full border border-warning/20">Processing</span>
-                </td>
-                
-              </tr>
-
-              <!-- Row 3 -->
-              <tr class="hover:bg-muted/50 transition-colors group" data-item-id="ORD-003">
-                <td class="p-4 font-medium text-sm">#ORD-003</td>
-                <td class="p-4">
-                  <div class="flex items-center gap-3">
-                    <img src="https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?w=100&h=100&fit=crop" class="size-10 rounded-lg object-cover border border-border">
-                    <div>
-                      <p class="font-semibold text-sm">Polaroid Camera</p>
-                      <p class="text-xs text-secondary">Variant : White</p>
-                    </div>
-                  </div>
-                </td>
-                <td class="p-4 hidden md:table-cell">
-                  <p class="font-medium text-sm">Emma Wilson</p>
-                  <p class="text-xs text-secondary">emma.w@example.com</p>
-                </td>
-                <td class="p-4 hidden lg:table-cell text-sm text-secondary">Oct 23, 2023</td>
-                <td class="p-4 font-semibold text-sm">$89.99</td>
-                <td class="p-4">
-                  <span class="bg-success/10 text-success text-xs font-semibold px-2.5 py-1 rounded-full border border-success/20">Completed</span>
-                </td>
-                
-              </tr>
-
-              <!-- Row 4 -->
-              <tr class="hover:bg-muted/50 transition-colors group" data-item-id="ORD-004">
-                <td class="p-4 font-medium text-sm">#ORD-004</td>
-                <td class="p-4">
-                  <div class="flex items-center gap-3">
-                    <img src="https://images.unsplash.com/photo-1583394838336-acd977736f90?w=100&h=100&fit=crop" class="size-10 rounded-lg object-cover border border-border">
-                    <div>
-                      <p class="font-semibold text-sm">Ergonomic Mouse</p>
-                      <p class="text-xs text-secondary">Variant : Grey</p>
-                    </div>
-                  </div>
-                </td>
-                <td class="p-4 hidden md:table-cell">
-                  <p class="font-medium text-sm">David Miller</p>
-                  <p class="text-xs text-secondary">david.m@example.com</p>
-                </td>
-                <td class="p-4 hidden lg:table-cell text-sm text-secondary">Oct 23, 2023</td>
-                <td class="p-4 font-semibold text-sm">$45.00</td>
-                <td class="p-4">
-                  <span class="bg-error/10 text-error text-xs font-semibold px-2.5 py-1 rounded-full border border-error/20">Failed</span>
-                </td>
-                
-              </tr>
-
-              <!-- Row 5 -->
-              <tr class="hover:bg-muted/50 transition-colors group" data-item-id="ORD-005">
-                <td class="p-4 font-medium text-sm">#ORD-005</td>
-                <td class="p-4">
-                  <div class="flex items-center gap-3">
-                    <img src="https://images.unsplash.com/photo-1491553895911-0055eca6402d?w=100&h=100&fit=crop" class="size-10 rounded-lg object-cover border border-border">
-                    <div>
-                      <p class="font-semibold text-sm">Running Shoes</p>
-                      <p class="text-xs text-secondary">Variant : Grey</p>
-                    </div>
-                  </div>
-                </td>
-                <td class="p-4 hidden md:table-cell">
-                  <p class="font-medium text-sm">Jessica Taylor</p>
-                  <p class="text-xs text-secondary">jess.t@example.com</p>
-                </td>
-                <td class="p-4 hidden lg:table-cell text-sm text-secondary">Oct 22, 2023</td>
-                <td class="p-4 font-semibold text-sm">$120.00</td>
-                <td class="p-4">
-                  <span class="bg-success/10 text-success text-xs font-semibold px-2.5 py-1 rounded-full border border-success/20">Completed</span>
-                </td>
-                
-              </tr>
+                  </td>
+                  <td class="p-4 hidden md:table-cell">
+                    <p class="font-medium text-sm"><?= $row['buyer_name'] ?></p>
+                    <p class="text-xs text-secondary"><?= $row['buyer_email'] ?></p>
+                  </td>
+                  <td class="p-4 hidden lg:table-cell text-sm text-secondary"><?= date('M d, Y', strtotime($row['transaction_date'])) ?></td>
+                  <td class="p-4 font-semibold text-sm">$<?= number_format($row['amount'], 0, ",", ".") ?></td>
+                  <td class="p-4">
+                    <span class="text-xs font-semibold px-2.5 py-1 rounded-full capitalize 
+                                <?= ($row['status'] == 'pending') ? 'bg-warning/10 text-warning border border-warning/20' : '' ?>
+                                <?= ($row['status'] == 'shipped') ? 'bg-primary/10 text-primary border border-primary/20' : '' ?>
+                                <?= ($row['status'] == 'completed') ? 'bg-success/10 text-success border border-success/20' : '' ?>
+                                <?= ($row['status'] == 'failed') ? 'bg-error/10 text-error border border-error/20' : '' ?>"><?= $row['status'] ?></span>
+                  </td>
+                  
+                </tr>
+              <?php endforeach; ?>
 
             </tbody>
           </table>
@@ -407,6 +373,21 @@
 </div>
 
 <script>
+  document.addEventListener('DOMContentLoaded', () => {
+    lucide.createIcons();
+    <?php if (!empty($_SESSION['success'])): ?>
+          
+          
+          showToast(<?php echo json_encode($_SESSION['success']); ?>, 'success');
+          
+          <?php 
+              
+              unset($_SESSION['success']); 
+          ?>
+          
+      <?php endif; ?>
+  });
+
   function toggleSidebar() {
     const sidebar = document.getElementById('sidebar');
     const overlay = document.getElementById('sidebar-overlay');
@@ -420,6 +401,38 @@
       overlay.classList.remove('hidden');
       setTimeout(() => overlay.classList.add('opacity-100'), 10);
     }
+  }
+
+  // Toast Notification System
+  function showToast(msg, type = 'success') {
+    document.getElementById('toast')?.remove();
+    
+    const toast = document.createElement('div');
+    toast.id = 'toast';
+    
+    const bgClass = type === 'success' ? 'bg-success' : 'bg-error';
+    const icon = type === 'success' ? 'check-circle' : 'alert-circle';
+    
+    toast.className = `fixed bottom-6 right-6 ${bgClass} text-white px-5 py-4 rounded-xl shadow-2xl z-50 flex items-center gap-3 transition-all duration-300 opacity-0 translate-y-4`;
+    
+    toast.innerHTML = `
+      <i data-lucide="${icon}" class="size-5"></i>
+      <span class="font-medium text-sm">${msg}</span>
+    `;
+    
+    document.body.appendChild(toast);
+    lucide.createIcons();
+    
+    // Animate in
+    requestAnimationFrame(() => {
+      toast.classList.remove('opacity-0', 'translate-y-4');
+    });
+    
+    // Auto remove
+    setTimeout(() => {
+      toast.classList.add('opacity-0', 'translate-y-4');
+      setTimeout(() => toast.remove(), 300);
+    }, 4000);
   }
 </script>
 

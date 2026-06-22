@@ -2,6 +2,7 @@
 session_start();
 require 'koneksi.php';
 
+$unauthorized_error = isset($_GET['error']);
 $error = "";
 
 if (isset($_POST['submit'])) {
@@ -9,7 +10,7 @@ if (isset($_POST['submit'])) {
     $password = $_POST['password'];
 
     
-    $query = "SELECT id, name, email, password, address FROM buyer WHERE email = ?";
+    $query = "SELECT id, name, email, password, address, avatar FROM buyer WHERE email = ?";
     $pre = $koneksi->prepare($query);
     
     
@@ -31,8 +32,10 @@ if (isset($_POST['submit'])) {
             $_SESSION['buyer_name'] = $buyer['name'];
             $_SESSION['buyer_email']= $buyer['email'];
             $_SESSION['buyer_address'] = $buyer['address'];
-            $_SESSION['is_login']   = true;
+            $_SESSION['buyer_avatar'] = $buyer['avatar'];
+            $_SESSION['buyer_logged_in']   = true;
 
+            $_SESSION['success'] = "Welcome back, " . $_SESSION['buyer_name'];
            header("Location: /home.php"); 
             exit;
         } else {
@@ -256,6 +259,10 @@ if (isset($_POST['submit'])) {
   document.addEventListener("DOMContentLoaded", function() {
     <?php if (!empty($error)): ?>
         showToast(<?php echo json_encode($error); ?>, 'error');
+    <?php endif; ?>
+
+    <?php if ($unauthorized_error): ?>
+        showToast('Access Denied! Please login first.', 'error');
     <?php endif; ?>
   });
 

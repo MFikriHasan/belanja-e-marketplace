@@ -1,40 +1,53 @@
 <?php
     require 'koneksi.php';
     include 'login_check.php';
+    check_access_control('seller');
 
     $seller_id = $_SESSION['seller_id'];
 
     // total pending shipping status
-    $query_pending = "SELECT COUNT(id) AS total_pending FROM transaction_det WHERE shipping_status = ?";
+    $query_pending = "SELECT COUNT(id) AS total_pending 
+                      FROM transaction_det 
+                      WHERE shipping_status = ? 
+                      AND seller_id = ?";
     $pre = $koneksi->prepare($query_pending);
     $pending = 'pending';
-    $pre->bind_param("s", $pending);
+    $pre->bind_param("si", $pending, $seller_id);
     $pre->execute();
     $result_pending = $pre->get_result()->fetch_assoc();
     
     // total shipped shipping status
-    $query_shipped = "SELECT COUNT(id) AS total_shipped FROM transaction_det WHERE shipping_status = ?";
+    $query_shipped = "SELECT COUNT(id) AS total_shipped 
+                      FROM transaction_det 
+                      WHERE shipping_status = ?
+                      AND seller_id = ?";
     $pre = $koneksi->prepare($query_shipped);
     $shipped = 'shipped';
-    $pre->bind_param("s", $shipped);
+    $pre->bind_param("si", $shipped, $seller_id);
     $pre->execute();
     $result_shipped = $pre->get_result()->fetch_assoc();
 
 
     // total failed shipping status
-    $query_failed = "SELECT COUNT(id) AS total_failed FROM transaction_det WHERE shipping_status = ?";
+    $query_failed = "SELECT COUNT(id) AS total_failed 
+                    FROM transaction_det 
+                    WHERE shipping_status = ?
+                    AND seller_id = ?";
     $pre = $koneksi->prepare($query_failed);
     $failed = 'failed';
-    $pre->bind_param("s", $failed);
+    $pre->bind_param("si", $failed, $seller_id);
     $pre->execute();
     $result_failed = $pre->get_result()->fetch_assoc();
 
 
     // total completed shipping status
-    $query_completed = "SELECT COUNT(id) AS total_completed FROM transaction_det WHERE shipping_status = ?";
+    $query_completed = "SELECT COUNT(id) AS total_completed 
+                        FROM transaction_det 
+                        WHERE shipping_status = ?
+                        AND seller_id = ?";
     $pre = $koneksi->prepare($query_completed);
     $completed = 'completed';
-    $pre->bind_param("s", $completed);
+    $pre->bind_param("si", $completed, $seller_id);
     $pre->execute();
     $result_completed = $pre->get_result()->fetch_assoc();
 
@@ -206,18 +219,10 @@
 
         
 
-        <!-- User Profile -->
-        <div class="flex items-center gap-3 cursor-pointer hover:opacity-80 transition-opacity">
-          <div class="text-right hidden sm:block">
-            <p class="font-semibold text-sm leading-tight">Blyad Store</p>
-            <p class="text-secondary text-xs">blyad.store@example.com</p>
-          </div>
-          <div class="relative">
-            <img src="https://images.unsplash.com/photo-1560179707-f14e90ef3623?w=100&h=100&fit=crop" alt="User Avatar" class="size-11 rounded-xl object-cover ring-2 ring-border">
-            <!-- Online Status Indicator -->
-            <span class="absolute bottom-0 right-0 size-3.5 bg-success border-2 border-white rounded-full" title="Online"></span>
-          </div>
-        </div>
+        <!-- Seller Profile -->
+        <?php
+          include 'seller_header_profile.php';
+        ?>
       </div>
     </header>
 

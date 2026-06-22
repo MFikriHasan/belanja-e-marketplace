@@ -5,7 +5,7 @@
 require 'koneksi.php';
 include 'login_check.php';
 
-
+check_access_control('buyer');
 
 $buyer_id = $_SESSION['buyer_id'];
 $success_message = '';

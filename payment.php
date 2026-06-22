@@ -1,6 +1,7 @@
 <?php
     require 'koneksi.php';
     include 'login_check.php';
+    check_access_control('buyer');
 
     if (empty($_SESSION['cart'])) {
         header('Location: home.php');

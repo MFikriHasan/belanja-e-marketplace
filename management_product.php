@@ -1,6 +1,7 @@
 <?php
     require 'koneksi.php';
     include 'login_check.php';
+    check_access_control('seller');
 
     $seller_id = $_SESSION['seller_id'];
     $error = "";
@@ -22,7 +23,7 @@
                     p.description, 
                     p.category_id,
                     c.name AS category_name,
-                    IFNULL(SUM(cv.color_stok), 0) AS stock_total,
+                    COALESCE(SUM(cv.color_stok), 0) AS stock_total,
                     MIN(cv.product_image) AS product_image,
                     COUNT(cv.id) AS variant_total
                FROM product p 
@@ -59,8 +60,30 @@
     $stmt_p->execute();
     $products = $stmt_p->get_result()->fetch_all(MYSQLI_ASSOC);
 
+    // stats total products, active, low and out of stocks
+    $query_stats = "SELECT 
+                    COUNT(p_total.product_id) AS total_products,
+                    COUNT(CASE WHEN p_total.total_all_stock >= 30 THEN 1 END) AS active_listings,
+                    COUNT(CASE WHEN p_total.total_all_stock >= 10 AND p_total.total_all_stock < 30 THEN 1 END) AS low_stock,
+                    COUNT(CASE WHEN p_total.total_all_stock <= 0 THEN 1 END) AS out_of_stock
+                FROM (
+                    SELECT p.id AS product_id, COALESCE(SUM(cv.color_stok), 0) AS total_all_stock
+                    FROM product p
+                    LEFT JOIN color_varian cv ON p.id = cv.product_id
+                    WHERE p.seller_id = ?
+                    GROUP BY p.id
+                ) AS p_total";
 
+        $stmt_stats = $koneksi->prepare($query_stats);
+        $stmt_stats->bind_param("i", $seller_id);
+        $stmt_stats->execute();
+        $res_stats = $stmt_stats->get_result()->fetch_assoc();
 
+        
+        $total_products = $res_stats['total_products'];
+        $active_count   = $res_stats['active_listings'];
+        $low_count      = $res_stats['low_stock'];
+        $out_count      = $res_stats['out_of_stock'];
 ?>
 
 <!DOCTYPE html>
@@ -198,18 +221,10 @@
 
         
 
-        <!-- User Profile -->
-        <div class="flex items-center gap-3 cursor-pointer hover:opacity-80 transition-opacity">
-          <div class="text-right hidden sm:block">
-            <p class="font-semibold text-sm leading-tight">Blyad Store</p>
-            <p class="text-secondary text-xs">blyad.store@example.com</p>
-          </div>
-          <div class="relative">
-            <img src="https://images.unsplash.com/photo-1560179707-f14e90ef3623?w=100&h=100&fit=crop" alt="User Avatar" class="size-11 rounded-xl object-cover ring-2 ring-border">
-            <!-- Online Status Indicator -->
-            <span class="absolute bottom-0 right-0 size-3.5 bg-success border-2 border-white rounded-full" title="Online"></span>
-          </div>
-        </div>
+        <!-- Seller Profile -->
+        <?php
+          include 'seller_header_profile.php';
+        ?>
       </div>
     </header>
 
@@ -224,7 +239,7 @@
         </div>
         <div>
           <p class="text-sm text-secondary font-medium">Total Products</p>
-          <p class="text-2xl font-bold" id="statTotal">0</p>
+          <p class="text-2xl font-bold" id="statTotal"><?= $total_products ?? 0 ?></p>
         </div>
       </div>
       <div class="bg-white p-5 rounded-2xl border border-border flex items-center gap-4">
@@ -233,7 +248,7 @@
         </div>
         <div>
           <p class="text-sm text-secondary font-medium">Active Listings</p>
-          <p class="text-2xl font-bold" id="statActive">0</p>
+          <p class="text-2xl font-bold" id="statActive"><?= $active_count ?? 0 ?></p>
         </div>
       </div>
       <div class="bg-white p-5 rounded-2xl border border-border flex items-center gap-4">
@@ -242,7 +257,7 @@
         </div>
         <div>
           <p class="text-sm text-secondary font-medium">Low Stock</p>
-          <p class="text-2xl font-bold" id="statLowStock">0</p>
+          <p class="text-2xl font-bold" id="statLowStock"><?= $low_count ?></p>
         </div>
       </div>
       <div class="bg-white p-5 rounded-2xl border border-border flex items-center gap-4">
@@ -251,7 +266,7 @@
         </div>
         <div>
           <p class="text-sm text-secondary font-medium">Out of Stock</p>
-          <p class="text-2xl font-bold" id="statLowStock">0</p>
+          <p class="text-2xl font-bold" id="statLowStock"><?= $out_count ?></p>
         </div>
       </div>
     </div>
@@ -305,7 +320,9 @@
                 <div class="relative aspect-square bg-muted overflow-hidden">
                   <img src="<?= !empty($row['product_image']) ? 'storage/image/' . $row['product_image'] : 'https://images.unsplash.com/photo-1618366712010-f4ae9c647dcb?w=400&h=400&fit=crop'; ?>" alt="<?= $row['name'] ?>" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
                   <div class="absolute top-3 left-3">
-                    <span class="<?= ($row['stock_total'] >= 30) ? 'bg-success/10 text-success px-2.5 py-1 rounded-full text-xs font-semibold border border-success/20' : (($row['stock_total'] >= 10) ? 'bg-warning/10 text-warning px-2.5 py-1 rounded-full text-xs font-semibold border border-warning/20' : 'bg-error/10 text-error px-2.5 py-1 rounded-full text-xs font-semibold border border-error/20') ?>"><?= ($row['stock_total'] >= 30) ? 'In Stock' : (($row['stock_total'] >= 10) ? 'Low Stock' : 'Out of Stock') ?> (<?= $row['stock_total'] ?>)</span>
+                    <span class="<?= ($row['stock_total'] >= 30) ? 'bg-success/10 text-success border-success/20' : (($row['stock_total'] <= 0) ? 'bg-error/10 text-error border-error/20' : 'bg-warning/10 text-warning border-warning/20') ?> px-2.5 py-1 rounded-full text-xs font-semibold border">
+                      <?= ($row['stock_total'] >= 30) ? 'In Stock' : (($row['stock_total'] <= 0) ? 'Out of Stock' : 'Low Stock') ?> (<?= $row['stock_total'] ?>)
+                    </span>
                   </div>
                   <div class="absolute top-3 right-3 flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                     <a href="edit_product.php?id=<?= $row['id'] ?>" class="w-8 h-8 bg-white rounded-full shadow-md flex items-center justify-center text-secondary hover:text-primary hover:bg-muted transition-colors" title="Edit">

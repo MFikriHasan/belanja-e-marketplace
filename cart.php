@@ -3,7 +3,7 @@
     require 'koneksi.php';
     include 'login_check.php';
 
-    
+    check_access_control('buyer');
 
     if (isset($_POST['remove'])) {
         $_SESSION['cart'] = [];

@@ -38,7 +38,7 @@
         <!-- User Profile -->
          <a href="/buyer_profile.php">
            <div class="h-9 w-9 rounded-full bg-muted overflow-hidden border border-border cursor-pointer ml-2 hover:ring-2 hover:ring-primary hover:ring-offset-2 transition-all">
-             <img src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop" alt="User" class="w-full h-full object-cover">
+             <img src="<?= !empty($_SESSION['buyer_avatar']) ? 'storage/image/' . $_SESSION['buyer_avatar'] : 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop' ?>" alt="User" class="w-full h-full object-cover">
            </div>
          </a>
       </div>
