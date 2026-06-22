@@ -9,7 +9,7 @@
         $_SESSION['cart'] = [];
     }
 
-    $carts = $_SESSION['cart'];
+    $carts = isset($_SESSION['cart']) ? $_SESSION['cart'] : [];
     $total_items = array_sum(array_column($carts, 'qty'));
 
     
@@ -262,7 +262,7 @@
               </div>
             </div>
             <?php endforeach; ?>
-            <?php if (empty($_SESSION['cart'])): ?>
+            <?php if (empty($carts)): ?>
                 <p class="px-2 py-2 text-center">Your cart is Lonely...</p>
             <?php endif; ?>
           </div>
