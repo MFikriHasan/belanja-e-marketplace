@@ -315,16 +315,6 @@
               <option value="failed">Failed</option>
             </select>
           </div>
-          
-          <div class="flex items-center gap-2">
-            <span class="text-sm text-secondary hidden sm:inline-block mr-2"><span id="selectedCount">0</span> selected</span>
-            <button class="p-2 text-secondary hover:bg-muted rounded-lg border border-transparent hover:border-border transition-all" title="Print Selected">
-              <i data-lucide="printer" class="size-4"></i>
-            </button>
-            <button class="p-2 text-error hover:bg-error/10 rounded-lg border border-transparent hover:border-error/20 transition-all" title="Delete Selected">
-              <i data-lucide="trash-2" class="size-4"></i>
-            </button>
-          </div>
         </div>
 
         <!-- Responsive Table -->
@@ -332,22 +322,15 @@
           <table class="w-full min-w-[800px] text-left border-collapse">
             <thead>
               <tr class="bg-muted/50 border-b border-border text-secondary text-sm">
-                <th class="p-4 w-12 text-center">
-                  <input type="checkbox" id="selectAll" class="rounded border-border text-primary focus:ring-primary/20 cursor-pointer size-4" onchange="toggleSelectAll(this)">
-                </th>
               <th class="p-4 font-medium">Order & Customer</th>
                 <th class="p-4 font-medium hidden md:table-cell">Date</th>
                 <th class="p-4 font-medium hidden sm:table-cell">SubTotal</th>
-                <th class="p-4 font-medium">Status</th>
-                <th class="p-4 font-medium">Actions</th>
+                <th class="p-4 font-medium ">Shipping Status</th>
               </tr>
             </thead>
             <tbody id="tableBody">
               <?php foreach ($orders as $row): ?>
                 <tr class="border-b border-border hover:bg-muted/30 transition-colors group">
-                  <td class="p-4 text-center">
-                    <input type="checkbox" class="row-checkbox rounded border-border text-primary focus:ring-primary/20 cursor-pointer size-4" onchange="updateSelectedCount()">
-                  </td>
                   <td class="p-4">
                     <div class="flex items-center gap-3">
                       <img src="<?= !empty($product['buyer_avatar']) ? 'storage/image/' . $product['seller_logo'] : 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop'; ?>" class="size-10 rounded-full object-cover shrink-0">
@@ -359,8 +342,10 @@
                   </td>
                   <td class="p-4 text-sm text-secondary hidden md:table-cell"><?= date('d M Y', strtotime($row['transaction_date'])) ?></td>
                   <td class="p-4 font-medium hidden sm:table-cell">$<?= number_format($row['subtotal'], 0, ",", ".") ?></td>
-                  <td class="p-4">
-                    <select class="status-select text-xs font-medium px-3 py-1.5 rounded-full border-none     focus:ring-2 focus:ring-offset-1 focus:ring-primary/30 
+                  <td class="py-4 px-6">
+                    <form action="update_shipping_status.php" method="post" class="flex items-center gap-2">
+                      <input type="hidden" name="transaction_det_id" value="<?= $row['id'] ?>">
+                      <select name="shipping_status" class="status-select text-xs font-medium px-3 py-1.5       rounded-full border-none focus:ring-2 focus:ring-offset-1 focus:ring-primary/30 
                         <?= ($row['shipping_status'] == 'pending') ? 'bg-warning/10 text-warning' : '' ?>
                         <?= ($row['shipping_status'] == 'shipped') ? 'bg-primary/10 text-primary' : '' ?>
                         <?= ($row['shipping_status'] == 'completed') ? 'bg-success/10 text-success' : '' ?>
@@ -372,16 +357,10 @@
                         <option value="completed" <?= ($row['shipping_status'] == 'completed') ? 'selected' : '' ?>>Completed</option>
                         <option value="failed" <?= ($row['shipping_status'] == 'failed') ? 'selected' : '' ?>>Failed</option>
                       </select>
-                  </td>
-                  <td class="p-4 text-right">
-                    <div class="flex items-center  gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button onclick="viewTransaction('ORD-1002')" class="p-2 text-secondary hover:text-primary hover:bg-primary/10 rounded-lg transition-colors" title="View Details">
-                        <i data-lucide="eye" class="size-4"></i>
+                      <button name="submit" type="submit" class="px-2 py-1 bg-primary text-white text-xs rounded-lg hover:bg-primary/90">
+                        Save
                       </button>
-                      <button onclick="showDeleteModal('ORD-1002')" class="p-2 text-secondary hover:text-error hover:bg-error/10 rounded-lg transition-colors" title="Delete">
-                        <i data-lucide="trash-2" class="size-4"></i>
-                      </button>
-                    </div>
+                    </form>
                   </td>
                 </tr>
               <?php endforeach; ?>
@@ -420,110 +399,7 @@
     </div>
   </main>
 </div>
-
-<!-- Modals -->
-
-
-
-<!-- Detail Modal -->
-<div id="detail-modal" class="fixed inset-0 bg-black/50 z-[100] hidden items-center justify-center p-4 backdrop-blur-sm">
-  <div class="bg-white rounded-2xl w-full max-w-lg max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
-    <div class="flex items-center justify-between p-5 border-b border-border bg-card-grey/30">
-      <div>
-        <h3 class="font-bold text-lg flex items-center gap-2">
-          Order Details
-          <span id="detailStatusBadge" class="text-[10px] uppercase tracking-wider font-bold px-2 py-0.5 rounded-full bg-warning/10 text-warning">Pending</span>
-        </h3>
-        <p id="detailOrderId" class="text-sm text-secondary font-mono mt-0.5">#ORD-XXXX</p>
-      </div>
-      <button onclick="closeDetailModal()" class="p-2 text-secondary hover:bg-muted rounded-full transition-colors">
-        <i data-lucide="x" class="size-5"></i>
-      </button>
-    </div>
-    
-    <div class="flex-1 overflow-y-auto p-5 space-y-6">
-      <!-- Customer Info -->
-      <div>
-        <h4 class="text-xs font-semibold text-secondary uppercase tracking-wider mb-3">Customer Information</h4>
-        <div class="flex items-center gap-4 p-4 rounded-xl border border-border bg-card-grey/30">
-          <img id="detailAvatar" src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop" class="size-12 rounded-full object-cover">
-          <div>
-            <p id="detailName" class="font-semibold text-foreground">Customer Name</p>
-            <p id="detailEmail" class="text-sm text-secondary">customer@example.com</p>
-          </div>
-        </div>
-      </div>
-
-      <!-- Order Items -->
-      <div>
-        <h4 class="text-xs font-semibold text-secondary uppercase tracking-wider mb-3">Order Items</h4>
-        <div class="border border-border rounded-xl overflow-hidden">
-          <div class="flex items-center justify-between p-3 border-b border-border bg-card-grey/30 text-sm">
-            <div class="flex items-center gap-3">
-              <div class="size-10 bg-muted rounded-lg flex items-center justify-center"><i data-lucide="package" class="size-5 text-secondary"></i></div>
-              <div>
-                <p class="font-medium">Wireless Headphones Pro</p>
-                <p class="text-xs text-secondary">Qty: 1</p>
-              </div>
-            </div>
-            <p class="font-medium">$124.50</p>
-          </div>
-          <div class="p-3 bg-muted/20 flex justify-between items-center text-sm">
-            <span class="text-secondary">Shipping</span>
-            <span class="font-medium">$0.00</span>
-          </div>
-          <div class="p-3 bg-card-grey/50 flex justify-between items-center border-t border-border">
-            <span class="font-semibold">Total</span>
-            <span id="detailTotal" class="font-bold text-primary text-lg">$124.50</span>
-          </div>
-        </div>
-      </div>
-      
-      <!-- Shipping Address -->
-      <div>
-        <h4 class="text-xs font-semibold text-secondary uppercase tracking-wider mb-3">Shipping Address</h4>
-        <div class="p-4 rounded-xl border border-border bg-card-grey/30 text-sm text-secondary leading-relaxed">
-          <p class="font-medium text-foreground mb-1">Home Address</p>
-          <p>123 Commerce Street, Suite 400</p>
-          <p>San Francisco, CA 94107</p>
-          <p>United States</p>
-        </div>
-      </div>
-    </div>
-    
-    <div class="p-5 border-t border-border bg-card-grey/30 flex justify-end gap-3">
-      <button onclick="closeDetailModal()" class="px-5 py-2.5 rounded-xl font-medium text-secondary hover:bg-muted transition-colors">Close</button>
-      <button onclick="showToast('Successfully Printed!', 'success')" class="px-5 py-2.5 rounded-xl font-medium bg-primary text-white hover:bg-primary-hover transition-colors shadow-sm shadow-primary/30">Print Invoice</button>
-    </div>
-  </div>
-</div>
-
-<!-- Delete Modal -->
-<div id="delete-modal" class="fixed inset-0 bg-black/50 z-[100] hidden items-center justify-center p-4 backdrop-blur-sm">
-  <div class="bg-white rounded-2xl w-full max-w-sm p-6 text-center shadow-2xl">
-    <div class="size-14 bg-error/10 rounded-full flex items-center justify-center mx-auto mb-4">
-      <i data-lucide="alert-triangle" class="size-7 text-error"></i>
-    </div>
-    <h3 class="text-xl font-bold mb-2">Delete Transaction?</h3>
-    <p class="text-secondary text-sm mb-6">This action cannot be undone. This will permanently remove the order record.</p>
-    <div class="flex gap-3">
-      <button onclick="closeDeleteModal()" class="flex-1 py-2.5 rounded-xl font-medium border border-border text-secondary hover:bg-muted transition-colors">Cancel</button>
-      <button onclick="confirmDelete()" class="flex-1 py-2.5 rounded-xl font-medium bg-error text-white hover:bg-error/90 transition-colors shadow-sm shadow-error/30">Delete</button>
-    </div>
-  </div>
-</div>
-
 <script>
-// --- Data & State ---
-const transactionsData = {
-  'ORD-1001': { name: 'Sarah Jenkins', email: 'sarah@example.com', total: '$124.50', status: 'pending', avatar: '' },
-  'ORD-1002': { name: 'Michael Chen', email: 'michael@example.com', total: '$89.00', status: 'success', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop' },
-  'ORD-1003': { name: 'Emma Wilson', email: 'emma@example.com', total: '$342.20', status: 'shipped', avatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100&h=100&fit=crop' },
-  'ORD-1004': { name: 'David Rodriguez', email: 'david@example.com', total: '$56.00', status: 'pending', avatar: '' },
-  'ORD-1005': { name: 'Lisa Wang', email: 'lisa@example.com', total: '$890.00', status: 'failed', avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop' }
-};
-
-let itemToDelete = null;
 
 // --- UI Interactions ---
 function toggleSidebar() {
@@ -543,128 +419,29 @@ function updateRowStatus(selectElement) {
   // Apply new color classes based on value
   if (val === 'pending') selectElement.classList.add('bg-warning/10', 'text-warning');
   if (val === 'shipped') selectElement.classList.add('bg-primary/10', 'text-primary');
-  else if (val === 'success') selectElement.classList.add('bg-success/10', 'text-success');
+  else if (val === 'completed') selectElement.classList.add('bg-success/10', 'text-success');
   else if (val === 'failed') selectElement.classList.add('bg-error/10', 'text-error');
 
   // Update data attribute for filtering
   row.dataset.status = val;
   
-  // Update internal data if needed
-  if(transactionsData[orderId]) transactionsData[orderId].status = val;
-
-  showToast(`Order ${orderId} marked as ${val}`, 'success');
+  
 }
 
-// --- Filtering Logic ---
+
 document.addEventListener('DOMContentLoaded', () => {
-  document.getElementById('searchInput')?.addEventListener('input', applyFilters);
-  document.getElementById('statusFilter')?.addEventListener('change', applyFilters);
+  <?php if (!empty($_SESSION['success'])): ?>
+          
+          
+          showToast(<?php echo json_encode($_SESSION['success']); ?>, 'success');
+          
+          <?php 
+              
+              unset($_SESSION['success']); 
+          ?>
+          
+    <?php endif; ?>
 });
-
-function applyFilters() {
-  const search = (document.getElementById('searchInput')?.value || '').toLowerCase().trim();
-  const status = document.getElementById('statusFilter')?.value || 'all';
-
-  document.querySelectorAll('tr[data-item-id]').forEach(row => {
-    const text = (row.dataset.searchable || '').toLowerCase();
-    const rowStatus = row.dataset.status;
-    
-    const matchesSearch = search === '' || text.includes(search);
-    const matchesStatus = status === 'all' || rowStatus === status;
-    
-    row.style.display = (matchesSearch && matchesStatus) ? '' : 'none';
-  });
-}
-
-// --- Detail Modal Logic ---
-function viewTransaction(id) {
-  const data = transactionsData[id];
-  if (!data) return;
-  
-  document.getElementById('detailOrderId').textContent = `#${id}`;
-  document.getElementById('detailName').textContent = data.name;
-  document.getElementById('detailEmail').textContent = data.email;
-  document.getElementById('detailTotal').textContent = data.total;
-  
-  const avatarEl = document.getElementById('detailAvatar');
-  if (data.avatar) {
-    avatarEl.src = data.avatar;
-    avatarEl.classList.remove('hidden');
-  } else {
-    // Fallback to UI avatar if no image (simplified for this demo)
-    avatarEl.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(data.name)}&background=165DFF&color=fff`;
-  }
-
-  // Update badge in modal
-  const badge = document.getElementById('detailStatusBadge');
-  badge.textContent = data.status;
-  badge.className = 'text-[10px] uppercase tracking-wider font-bold px-2 py-0.5 rounded-full';
-  if (data.status === 'pending') badge.classList.add('bg-warning/10', 'text-warning');
-  else if (data.status === 'processing') badge.classList.add('bg-primary/10', 'text-primary');
-  else if (data.status === 'shipped') badge.classList.add('bg-indigo-100', 'text-indigo-700');
-  else if (data.status === 'completed') badge.classList.add('bg-success/10', 'text-success');
-
-  document.getElementById('detail-modal').classList.remove('hidden');
-  document.getElementById('detail-modal').classList.add('flex');
-}
-
-function closeDetailModal() {
-  document.getElementById('detail-modal').classList.add('hidden');
-  document.getElementById('detail-modal').classList.remove('flex');
-}
-
-// --- Delete Logic ---
-function showDeleteModal(id) {
-  itemToDelete = id;
-  document.getElementById('delete-modal').classList.remove('hidden');
-  document.getElementById('delete-modal').classList.add('flex');
-}
-
-function closeDeleteModal() {
-  itemToDelete = null;
-  document.getElementById('delete-modal').classList.add('hidden');
-  document.getElementById('delete-modal').classList.remove('flex');
-}
-
-function confirmDelete() {
-  if (itemToDelete) {
-    const row = document.querySelector(`tr[data-item-id="${itemToDelete}"]`);
-    if (row) row.remove();
-    showToast(`Order ${itemToDelete} deleted`, 'success');
-  }
-  closeDeleteModal();
-}
-
-// --- Bulk Actions Logic ---
-function toggleSelectAll(source) {
-  const checkboxes = document.querySelectorAll('.row-checkbox');
-  checkboxes.forEach(cb => {
-    // Only check visible rows
-    if(cb.closest('tr').style.display !== 'none') {
-      cb.checked = source.checked;
-    }
-  });
-  updateSelectedCount();
-}
-
-function updateSelectedCount() {
-  const count = document.querySelectorAll('.row-checkbox:checked').length;
-  document.getElementById('selectedCount').textContent = count;
-  
-  // Update select all checkbox state
-  const totalVisible = Array.from(document.querySelectorAll('.row-checkbox')).filter(cb => cb.closest('tr').style.display !== 'none').length;
-  const selectAllCb = document.getElementById('selectAll');
-  if(totalVisible > 0) {
-    selectAllCb.checked = count === totalVisible;
-    selectAllCb.indeterminate = count > 0 && count < totalVisible;
-  } else {
-    selectAllCb.checked = false;
-    selectAllCb.indeterminate = false;
-  }
-}
-
-
-
 // --- Toast Notification ---
 function showToast(msg, type='success') {
   document.getElementById('toast')?.remove();
@@ -692,7 +469,5 @@ function showToast(msg, type='success') {
   }, 3000);
 }
 </script>
-
-
 </body>
 </html>

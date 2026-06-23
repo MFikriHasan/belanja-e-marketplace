@@ -2,6 +2,35 @@
     require 'koneksi.php';
     include 'login_check.php';
     check_access_control('buyer');
+    $buyer_id = (int)$_SESSION['buyer_id'];
+
+    $sql = "SELECT 
+            td.id AS detail_id,
+            t.id AS transaction_id,
+            t.date,
+            t.payment_method,
+            p.name AS product_name,
+            cv.product_image,
+            s.name AS store_name,
+            td.qty,
+            td.subtotal,
+            b.name AS buyer_name,
+            b.address AS buyer_address,
+            td.shipping_status
+            FROM transaction_det td
+            JOIN `transaction` t ON td.transaction_id = t.id
+            JOIN product p ON td.product_id = p.id
+            JOIN buyer b ON t.buyer_id = b.id
+            JOIN color_varian cv ON td.color_varian_id = cv.id
+            JOIN seller s ON td.seller_id = s.id
+            WHERE t.buyer_id = ?
+            ORDER BY t.date DESC, td.id DESC";
+
+    $stmt = $koneksi->prepare($sql);
+    $stmt->bind_param("i", $buyer_id);
+    $stmt->execute();
+    $transactions = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+    
 ?>
 
 <!DOCTYPE html>
@@ -95,261 +124,156 @@
       <!-- Transactions List -->
       <div id="transactionsContainer" class="flex flex-col gap-4">
         
-        <!-- Item 1 -->
-        <div data-item-id="ORD-8472" data-status="success" data-searchable="ord-8472 sony wh-1000xm5 headphones tech haven" class="bg-white border border-border rounded-2xl p-4 md:p-5 flex flex-col md:flex-row gap-4 md:gap-6 items-start md:items-center hover:shadow-md transition-shadow">
-          <div class="flex items-start gap-4 w-full md:w-auto md:flex-1">
-            <img src="https://images.unsplash.com/photo-1618366712010-f4ae9c647dcb?w=200&h=200&fit=crop" class="size-20 md:size-24 rounded-xl object-cover border border-border shrink-0">
-            <div class="flex-1 min-w-0 pt-1">
-              <div class="flex items-center gap-2 mb-1.5">
-                <span class="text-xs font-semibold text-secondary bg-muted px-2 py-0.5 rounded-md">ORD-8472</span>
-                <span class="text-xs text-secondary">Oct 24, 2023</span>
-              </div>
-              <h4 class="font-semibold text-foreground text-base md:text-lg truncate">Sony WH-1000XM5 Headphones</h4>
-              <div class="flex items-center gap-1 mt-1">
-                <i data-lucide="store" class="size-3.5 text-secondary"></i>
-                <p class="text-sm text-secondary truncate">Tech Haven Official</p>
+        <?php foreach ($transactions as $row): ?>
+          <div class="bg-white border border-border rounded-2xl p-4 md:p-5 flex flex-col md:flex-row gap-4 md:gap-6 items-start md:items-center hover:shadow-md transition-shadow">
+            <div class="flex items-start gap-4 w-full md:w-auto md:flex-1">
+              <img src="<?= !empty($row['product_image']) ? 'storage/image/' . $row['product_image'] : 'https://images.unsplash.com/photo-1618366712010-f4ae9c647dcb?w=200&h=200&fit=crop' ?>" class="size-20 md:size-24 rounded-xl object-cover border border-border shrink-0">
+              <div class="flex-1 min-w-0 pt-1">
+                <div class="flex items-center gap-2 mb-1.5">
+                  <span class="text-xs font-semibold text-secondary bg-muted px-2 py-0.5 rounded-md">ORD-<?= $row['detail_id'] ?></span>
+                  <span class="text-xs text-secondary"><?= date("d M Y", strtotime($row['date'])) ?></span>
+                </div>
+                <h4 class="font-semibold text-foreground text-base md:text-lg truncate"><?= $row['product_name'] ?></h4>
+                <div class="flex items-center gap-1 mt-1">
+                  <i data-lucide="store" class="size-3.5 text-secondary"></i>
+                  <p class="text-sm text-secondary truncate"><?= $row['store_name'] ?></p>
+                </div>
               </div>
             </div>
-          </div>
-          
-          <div class="flex flex-row md:flex-col items-center md:items-end justify-between w-full md:w-auto gap-2 md:gap-1 border-t border-border md:border-t-0 pt-4 md:pt-0">
-            <div class="flex flex-col md:items-end">
-              <span class="text-xs text-secondary mb-0.5 md:hidden">Total</span>
-              <span class="font-bold text-lg md:text-xl text-foreground">$348.00</span>
+            
+            <div class="flex flex-row md:flex-col items-center md:items-end justify-between w-full md:w-auto gap-2 md:gap-1 border-t border-border md:border-t-0 pt-4 md:pt-0">
+              <div class="flex flex-col md:items-end">
+                <span class="text-xs text-secondary mb-0.5 md:hidden">Total</span>
+                <span class="font-bold text-lg md:text-xl text-foreground">$<?= number_format($row['subtotal'], 0, ",", ".") ?></span>
+              </div>
+              <span class="capitalize text-xs font-semibold px-2.5 py-1 rounded-full flex items-center gap-1
+                <?= ($row['shipping_status'] == 'pending') ? 'bg-warning/10 text-warning' : '' ?>
+                <?= ($row['shipping_status'] == 'shipped') ? 'bg-primary/10 text-primary' : '' ?>
+                <?= ($row['shipping_status'] == 'completed') ? 'bg-success/10 text-success' : '' ?>
+                <?= ($row['shipping_status'] == 'failed') ? 'bg-error/10 text-error' : '' ?>">
+                
+                <i data-lucide="<?= ($row['shipping_status'] == 'pending') ? 'clock' : '' ?><?= ($row['shipping_status'] == 'shipped') ? 'truck' : '' ?><?= ($row['shipping_status'] == 'completed') ? 'check-circle' : '' ?><?= ($row['shipping_status'] == 'failed') ? 'x-circle' : '' ?>" class="size-3"></i>
+                
+                <?= $row['shipping_status'] ?>
+              </span>
             </div>
-            <span class="bg-success/10 text-success text-xs font-semibold px-2.5 py-1 rounded-full flex items-center gap-1">
-              <i data-lucide="check-circle-2" class="size-3"></i> Success
-            </span>
+            
+            <div class="flex items-center gap-2 w-full md:w-auto mt-2 md:mt-0">
+              <button onclick="viewItem('detailModal<?= $row['detail_id'] ?>')" class="flex-1 md:flex-none px-4 py-2.5 bg-white border border-border text-foreground text-sm font-semibold rounded-xl hover:bg-muted hover:border-secondary transition-all text-center cursor-pointer">Details</button>
+            </div>
           </div>
-          
-          <div class="flex items-center gap-2 w-full md:w-auto mt-2 md:mt-0">
-            <button onclick="viewItem('ORD-8472')" class="flex-1 md:flex-none px-4 py-2.5 bg-white border border-border text-foreground text-sm font-semibold rounded-xl hover:bg-muted hover:border-secondary transition-all text-center cursor-pointer">Details</button>
-            <button onclick="showToast('Added to cart', 'success')" class="flex-1 md:flex-none px-4 py-2.5 bg-primary text-white text-sm font-semibold rounded-xl hover:bg-primary-hover shadow-sm shadow-primary/20 transition-all text-center cursor-pointer">Buy Again</button>
-          </div>
-        </div>
 
-        <!-- Item 2 -->
-        <div data-item-id="ORD-8471" data-status="pending" data-searchable="ord-8471 minimalist ceramic vase home decor studio" class="bg-white border border-border rounded-2xl p-4 md:p-5 flex flex-col md:flex-row gap-4 md:gap-6 items-start md:items-center hover:shadow-md transition-shadow">
-          <div class="flex items-start gap-4 w-full md:w-auto md:flex-1">
-            <img src="https://images.unsplash.com/photo-1578500494198-246f612d3b3d?w=200&h=200&fit=crop" class="size-20 md:size-24 rounded-xl object-cover border border-border shrink-0">
-            <div class="flex-1 min-w-0 pt-1">
-              <div class="flex items-center gap-2 mb-1.5">
-                <span class="text-xs font-semibold text-secondary bg-muted px-2 py-0.5 rounded-md">ORD-8471</span>
-                <span class="text-xs text-secondary">Oct 22, 2023</span>
-              </div>
-              <h4 class="font-semibold text-foreground text-base md:text-lg truncate">Minimalist Ceramic Vase</h4>
-              <div class="flex items-center gap-1 mt-1">
-                <i data-lucide="store" class="size-3.5 text-secondary"></i>
-                <p class="text-sm text-secondary truncate">Home Decor Studio</p>
-              </div>
-            </div>
-          </div>
-          
-          <div class="flex flex-row md:flex-col items-center md:items-end justify-between w-full md:w-auto gap-2 md:gap-1 border-t border-border md:border-t-0 pt-4 md:pt-0">
-            <div class="flex flex-col md:items-end">
-              <span class="text-xs text-secondary mb-0.5 md:hidden">Total</span>
-              <span class="font-bold text-lg md:text-xl text-foreground">$45.00</span>
-            </div>
-            <span class="bg-warning/10 text-warning text-xs font-semibold px-2.5 py-1 rounded-full flex items-center gap-1">
-              <i data-lucide="clock" class="size-3"></i> Pending
-            </span>
-          </div>
-          
-          <div class="flex items-center gap-2 w-full md:w-auto mt-2 md:mt-0">
-            <button onclick="viewItem('ORD-8471')" class="flex-1 md:flex-none px-4 py-2.5 bg-white border border-border text-foreground text-sm font-semibold rounded-xl hover:bg-muted hover:border-secondary transition-all text-center cursor-pointer">Details</button>
-            <button onclick="showToast('Payment reminder sent', 'success')" class="flex-1 md:flex-none px-4 py-2.5 bg-warning text-white text-sm font-semibold rounded-xl hover:bg-warning/90 shadow-sm shadow-warning/20 transition-all text-center cursor-pointer">Pay Now</button>
-          </div>
-        </div>
 
-        <!-- Item 3 -->
-        <div data-item-id="ORD-8465" data-status="success" data-searchable="ord-8465 organic cotton t-shirt essential wear" class="bg-white border border-border rounded-2xl p-4 md:p-5 flex flex-col md:flex-row gap-4 md:gap-6 items-start md:items-center hover:shadow-md transition-shadow">
-          <div class="flex items-start gap-4 w-full md:w-auto md:flex-1">
-            <img src="https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=200&h=200&fit=crop" class="size-20 md:size-24 rounded-xl object-cover border border-border shrink-0">
-            <div class="flex-1 min-w-0 pt-1">
-              <div class="flex items-center gap-2 mb-1.5">
-                <span class="text-xs font-semibold text-secondary bg-muted px-2 py-0.5 rounded-md">ORD-8465</span>
-                <span class="text-xs text-secondary">Oct 15, 2023</span>
-              </div>
-              <h4 class="font-semibold text-foreground text-base md:text-lg truncate">Organic Cotton T-Shirt</h4>
-              <div class="flex items-center gap-1 mt-1">
-                <i data-lucide="store" class="size-3.5 text-secondary"></i>
-                <p class="text-sm text-secondary truncate">Essential Wear</p>
-              </div>
-            </div>
-          </div>
-          
-          <div class="flex flex-row md:flex-col items-center md:items-end justify-between w-full md:w-auto gap-2 md:gap-1 border-t border-border md:border-t-0 pt-4 md:pt-0">
-            <div class="flex flex-col md:items-end">
-              <span class="text-xs text-secondary mb-0.5 md:hidden">Total</span>
-              <span class="font-bold text-lg md:text-xl text-foreground">$28.50</span>
-            </div>
-            <span class="bg-success/10 text-success text-xs font-semibold px-2.5 py-1 rounded-full flex items-center gap-1">
-              <i data-lucide="check-circle-2" class="size-3"></i> Success
-            </span>
-          </div>
-          
-          <div class="flex items-center gap-2 w-full md:w-auto mt-2 md:mt-0">
-            <button onclick="viewItem('ORD-8465')" class="flex-1 md:flex-none px-4 py-2.5 bg-white border border-border text-foreground text-sm font-semibold rounded-xl hover:bg-muted hover:border-secondary transition-all text-center cursor-pointer">Details</button>
-            <button onclick="showToast('Added to cart', 'success')" class="flex-1 md:flex-none px-4 py-2.5 bg-primary text-white text-sm font-semibold rounded-xl hover:bg-primary-hover shadow-sm shadow-primary/20 transition-all text-center cursor-pointer">Buy Again</button>
-          </div>
-        </div>
 
-        <!-- Item 4 -->
-        <div data-item-id="ORD-8450" data-status="failed" data-searchable="ord-8450 smart fitness watch fitgear pro" class="bg-white border border-border rounded-2xl p-4 md:p-5 flex flex-col md:flex-row gap-4 md:gap-6 items-start md:items-center hover:shadow-md transition-shadow">
-          <div class="flex items-start gap-4 w-full md:w-auto md:flex-1">
-            <img src="https://images.unsplash.com/photo-1579586337278-3befd40fd17a?w=200&h=200&fit=crop" class="size-20 md:size-24 rounded-xl object-cover border border-border shrink-0 opacity-70 grayscale">
-            <div class="flex-1 min-w-0 pt-1">
-              <div class="flex items-center gap-2 mb-1.5">
-                <span class="text-xs font-semibold text-secondary bg-muted px-2 py-0.5 rounded-md">ORD-8450</span>
-                <span class="text-xs text-secondary">Oct 10, 2023</span>
+          <!-- Transaction Detail Modal -->
+          <div id="detailModal<?= $row['detail_id'] ?>" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] hidden items-center justify-center p-4 opacity-0 transition-opacity duration-300">
+            <div class="bg-white rounded-3xl w-full max-w-lg max-h-[90vh] overflow-hidden flex flex-col shadow-2xl transform scale-95 transition-transform duration-300" id="detailModalContent">
+              <div class="p-5 md:p-6 border-b border-border flex justify-between items-center bg-white sticky top-0 z-10">
+                <h3 class="font-bold text-xl text-foreground">Order Details</h3>
+                <button onclick="closeDetail('detailModal<?= $row['detail_id'] ?>')" class="size-10 flex items-center justify-center rounded-full hover:bg-muted transition-colors cursor-pointer">
+                  <i data-lucide="x" class="size-5 text-secondary"></i>
+                </button>
               </div>
-              <h4 class="font-semibold text-foreground text-base md:text-lg truncate">Smart Fitness Watch</h4>
-              <div class="flex items-center gap-1 mt-1">
-                <i data-lucide="store" class="size-3.5 text-secondary"></i>
-                <p class="text-sm text-secondary truncate">FitGear Pro</p>
-              </div>
-            </div>
-          </div>
-          
-          <div class="flex flex-row md:flex-col items-center md:items-end justify-between w-full md:w-auto gap-2 md:gap-1 border-t border-border md:border-t-0 pt-4 md:pt-0">
-            <div class="flex flex-col md:items-end">
-              <span class="text-xs text-secondary mb-0.5 md:hidden">Total</span>
-              <span class="font-bold text-lg md:text-xl text-secondary line-through">$129.00</span>
-            </div>
-            <span class="bg-error/10 text-error text-xs font-semibold px-2.5 py-1 rounded-full flex items-center gap-1">
-              <i data-lucide="x-circle" class="size-3"></i> Failed
-            </span>
-          </div>
-          
-          <div class="flex items-center gap-2 w-full md:w-auto mt-2 md:mt-0">
-            <button onclick="viewItem('ORD-8450')" class="flex-1 md:flex-none px-4 py-2.5 bg-white border border-border text-foreground text-sm font-semibold rounded-xl hover:bg-muted hover:border-secondary transition-all text-center cursor-pointer">Details</button>
-            <button onclick="showToast('Item no longer available', 'error')" class="flex-1 md:flex-none px-4 py-2.5 bg-muted text-secondary text-sm font-semibold rounded-xl cursor-not-allowed text-center">Unavailable</button>
-          </div>
-        </div>
+              
+              <div class="p-5 md:p-6 overflow-y-auto flex-1 bg-card-grey">
+                <!-- Product Info -->
+                <div class="bg-white rounded-2xl p-4 border border-border mb-4 flex items-center gap-4">
+                  <img  src="<?= !empty($row['product_image']) ? 'storage/image/' . $row['product_image'] : 'https://images.unsplash.com/photo-1618366712010-f4ae9c647dcb?w=200&h=200&fit=crop' ?>" class="size-20 rounded-xl object-cover border border-border">
+                  <div class="flex-1 min-w-0">
+                    <h4 class="font-bold text-foreground text-lg leading-tight mb-1"><?= $row['product_name'] ?></h4>
+                    <div class="flex items-center gap-1 text-secondary">
+                      <i data-lucide="store" class="size-4"></i>
+                      <p class="text-sm"><?= $row['store_name'] ?></p>
+                    </div>
+                  </div>
+                </div>
 
-        <!-- Item 5 -->
-        <div data-item-id="ORD-8422" data-status="success" data-searchable="ord-8422 artisan coffee beans roast masters" class="bg-white border border-border rounded-2xl p-4 md:p-5 flex flex-col md:flex-row gap-4 md:gap-6 items-start md:items-center hover:shadow-md transition-shadow">
-          <div class="flex items-start gap-4 w-full md:w-auto md:flex-1">
-            <img src="https://images.unsplash.com/photo-1559525839-b184a4d698c7?w=200&h=200&fit=crop" class="size-20 md:size-24 rounded-xl object-cover border border-border shrink-0">
-            <div class="flex-1 min-w-0 pt-1">
-              <div class="flex items-center gap-2 mb-1.5">
-                <span class="text-xs font-semibold text-secondary bg-muted px-2 py-0.5 rounded-md">ORD-8422</span>
-                <span class="text-xs text-secondary">Oct 02, 2023</span>
+                <!-- Order Info -->
+                <div class="bg-white rounded-2xl border border-border overflow-hidden">
+                  <div class="p-4 border-b border-border bg-muted/30">
+                    <h5 class="font-semibold text-sm text-secondary uppercase tracking-wider">Summary</h5>
+                  </div>
+                  <div class="p-4 space-y-4">
+                    <div class="flex justify-between items-center">
+                      <span class="text-secondary text-sm">Order ID</span>
+                      <span  class="font-semibold text-foreground">ORD-<?= $row['detail_id'] ?></span>
+                    </div>
+                    <div class="flex justify-between items-center">
+                      <span class="text-secondary text-sm">Date Placed</span>
+                      <span class="font-medium text-foreground"><?= date("d M, Y, H:i A", strtotime($row['date'])) ?></span>
+                    </div>
+                    <div class="flex justify-between items-center">
+                      <span class="text-secondary text-sm">Status</span>
+                      <div>
+                        <span class="capitalize text-xs font-semibold px-2.5 py-1 rounded-full flex items-center gap-1
+                          <?= ($row['shipping_status'] == 'pending') ? 'bg-warning/10 text-warning' : '' ?>
+                          <?= ($row['shipping_status'] == 'shipped') ? 'bg-primary/10 text-primary' : '' ?>
+                          <?= ($row['shipping_status'] == 'completed') ? 'bg-success/10 text-success' : '' ?>
+                          <?= ($row['shipping_status'] == 'failed') ? 'bg-error/10 text-error' : '' ?>">
+                          
+                          <i data-lucide="<?= ($row['shipping_status'] == 'pending') ? 'clock' : '' ?><?= ($row['shipping_status'] == 'shipped') ? 'truck' : '' ?><?= ($row['shipping_status'] == 'completed') ? 'check-circle' : '' ?><?= ($row['shipping_status'] == 'failed') ? 'x-circle' : '' ?>" class="size-3"></i>
+                          
+                          <?= $row['shipping_status'] ?>
+                        </span>
+                      </div>
+                    </div>
+                    <div class="flex justify-between items-center">
+                      <span class="text-secondary text-sm">Payment Method</span>
+                      <span class="font-medium text-foreground flex items-center gap-2 capitalize">
+                        <i data-lucide="credit-card" class="size-4 text-secondary"></i> <?= $row['payment_method'] ?>
+                      </span>
+                    </div>
+                    <div class="flex justify-between items-center">
+                      <span class="text-secondary text-sm">Total Quantity</span>
+                      <span  class="font-semibold text-foreground"><?= $row['qty'] ?></span>
+                    </div>
+                    <div class="pt-4 border-t border-border flex justify-between items-center">
+                      <span class="font-semibold text-foreground">Total Amount</span>
+                      <span  class="font-bold text-xl text-primary">$<?= number_format($row['subtotal'], 0, ",", ".") ?></span>
+                    </div>
+                  </div>
+                </div>
+                
+                <!-- Shipping Info -->
+                <div class="bg-white rounded-2xl border border-border overflow-hidden mt-4">
+                  <div class="p-4 border-b border-border bg-muted/30">
+                    <h5 class="font-semibold text-sm text-secondary uppercase tracking-wider">Shipping Address</h5>
+                  </div>
+                  <div class="p-4">
+                    <p class="font-medium text-foreground"><?= $row['buyer_name'] ?></p>
+                    <p class="text-secondary text-sm mt-1"><?= $row['buyer_address'] ?></p>
+                  </div>
+                </div>
               </div>
-              <h4 class="font-semibold text-foreground text-base md:text-lg truncate">Artisan Coffee Beans (1kg)</h4>
-              <div class="flex items-center gap-1 mt-1">
-                <i data-lucide="store" class="size-3.5 text-secondary"></i>
-                <p class="text-sm text-secondary truncate">Roast Masters</p>
+              
+              <div class="p-5 md:p-6 border-t border-border bg-white flex gap-3">
+                <button onclick="closeDetail('detailModal<?= $row['detail_id'] ?>')" class="flex-1 py-3.5 bg-white border border-border text-foreground rounded-xl font-semibold hover:bg-muted transition-colors cursor-pointer">Close</button>
+                <button onclick="showToast('Invoice downloaded', 'success')" class="flex-1 py-3.5 bg-primary text-white rounded-xl font-semibold hover:bg-primary-hover shadow-sm shadow-primary/20 transition-colors cursor-pointer flex items-center justify-center gap-2">
+                  <i data-lucide="download" class="size-4"></i> Invoice
+                </button>
               </div>
             </div>
           </div>
-          
-          <div class="flex flex-row md:flex-col items-center md:items-end justify-between w-full md:w-auto gap-2 md:gap-1 border-t border-border md:border-t-0 pt-4 md:pt-0">
-            <div class="flex flex-col md:items-end">
-              <span class="text-xs text-secondary mb-0.5 md:hidden">Total</span>
-              <span class="font-bold text-lg md:text-xl text-foreground">$32.00</span>
-            </div>
-            <span class="bg-success/10 text-success text-xs font-semibold px-2.5 py-1 rounded-full flex items-center gap-1">
-              <i data-lucide="check-circle-2" class="size-3"></i> Success
-            </span>
-          </div>
-          
-          <div class="flex items-center gap-2 w-full md:w-auto mt-2 md:mt-0">
-            <button onclick="viewItem('ORD-8422')" class="flex-1 md:flex-none px-4 py-2.5 bg-white border border-border text-foreground text-sm font-semibold rounded-xl hover:bg-muted hover:border-secondary transition-all text-center cursor-pointer">Details</button>
-            <button onclick="showToast('Added to cart', 'success')" class="flex-1 md:flex-none px-4 py-2.5 bg-primary text-white text-sm font-semibold rounded-xl hover:bg-primary-hover shadow-sm shadow-primary/20 transition-all text-center cursor-pointer">Buy Again</button>
-          </div>
-        </div>
-
+        <?php endforeach; ?>
       </div>
 
-      <!-- Empty State (Hidden by default) -->
-      <div id="noResults" class="hidden flex-col items-center justify-center py-16 text-center">
+      <!-- Empty State  -->
+       <?php if (empty($transactions)): ?>
+        <div id="noResults" class="flex flex-col items-center justify-center py-16 text-center">
         <div class="size-20 bg-muted rounded-full flex items-center justify-center mb-4">
           <i data-lucide="search-x" class="size-10 text-secondary"></i>
         </div>
         <h3 class="text-lg font-bold text-foreground mb-1">No transactions found</h3>
         <p class="text-secondary max-w-sm">We couldn't find any orders matching your current filters. Try adjusting your search or status.</p>
-        <button onclick="filterByTab('status', 'all'); document.getElementById('searchInput').value='';" class="mt-6 px-6 py-2.5 bg-white border border-border text-foreground font-semibold rounded-xl hover:bg-muted transition-colors cursor-pointer">Clear Filters</button>
       </div>
+      <?php endif; ?>
+      
 
     </div>
   </main>
 </div>
 
-<!-- Transaction Detail Modal -->
-<div id="detailModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] hidden items-center justify-center p-4 opacity-0 transition-opacity duration-300">
-  <div class="bg-white rounded-3xl w-full max-w-lg max-h-[90vh] overflow-hidden flex flex-col shadow-2xl transform scale-95 transition-transform duration-300" id="detailModalContent">
-    <div class="p-5 md:p-6 border-b border-border flex justify-between items-center bg-white sticky top-0 z-10">
-      <h3 class="font-bold text-xl text-foreground">Order Details</h3>
-      <button onclick="closeDetail()" class="size-10 flex items-center justify-center rounded-full hover:bg-muted transition-colors cursor-pointer">
-        <i data-lucide="x" class="size-5 text-secondary"></i>
-      </button>
-    </div>
-    
-    <div class="p-5 md:p-6 overflow-y-auto flex-1 bg-card-grey">
-      <!-- Product Info -->
-      <div class="bg-white rounded-2xl p-4 border border-border mb-4 flex items-center gap-4">
-        <img id="detailImage" src="" class="size-20 rounded-xl object-cover border border-border">
-        <div class="flex-1 min-w-0">
-          <h4 id="detailName" class="font-bold text-foreground text-lg leading-tight mb-1"></h4>
-          <div class="flex items-center gap-1 text-secondary">
-            <i data-lucide="store" class="size-4"></i>
-            <p id="detailShop" class="text-sm"></p>
-          </div>
-        </div>
-      </div>
 
-      <!-- Order Info -->
-      <div class="bg-white rounded-2xl border border-border overflow-hidden">
-        <div class="p-4 border-b border-border bg-muted/30">
-          <h5 class="font-semibold text-sm text-secondary uppercase tracking-wider">Summary</h5>
-        </div>
-        <div class="p-4 space-y-4">
-          <div class="flex justify-between items-center">
-            <span class="text-secondary text-sm">Order ID</span>
-            <span id="detailId" class="font-semibold text-foreground"></span>
-          </div>
-          <div class="flex justify-between items-center">
-            <span class="text-secondary text-sm">Date Placed</span>
-            <span id="detailDate" class="font-medium text-foreground"></span>
-          </div>
-          <div class="flex justify-between items-center">
-            <span class="text-secondary text-sm">Status</span>
-            <div id="detailStatusContainer"></div>
-          </div>
-          <div class="flex justify-between items-center">
-            <span class="text-secondary text-sm">Payment Method</span>
-            <span class="font-medium text-foreground flex items-center gap-2">
-              <i data-lucide="credit-card" class="size-4 text-secondary"></i> Visa •••• 4242
-            </span>
-          </div>
-          <div class="pt-4 border-t border-border flex justify-between items-center">
-            <span class="font-semibold text-foreground">Total Amount</span>
-            <span id="detailPrice" class="font-bold text-xl text-primary"></span>
-          </div>
-        </div>
-      </div>
-      
-      <!-- Shipping Info -->
-      <div class="bg-white rounded-2xl border border-border overflow-hidden mt-4">
-        <div class="p-4 border-b border-border bg-muted/30">
-          <h5 class="font-semibold text-sm text-secondary uppercase tracking-wider">Shipping Address</h5>
-        </div>
-        <div class="p-4">
-          <p class="font-medium text-foreground">Alex Doe</p>
-          <p class="text-secondary text-sm mt-1">123 Market Street, Suite 400<br>San Francisco, CA 94103<br>United States</p>
-        </div>
-      </div>
-    </div>
-    
-    <div class="p-5 md:p-6 border-t border-border bg-white flex gap-3">
-      <button onclick="closeDetail()" class="flex-1 py-3.5 bg-white border border-border text-foreground rounded-xl font-semibold hover:bg-muted transition-colors cursor-pointer">Close</button>
-      <button onclick="showToast('Invoice downloaded', 'success')" class="flex-1 py-3.5 bg-primary text-white rounded-xl font-semibold hover:bg-primary-hover shadow-sm shadow-primary/20 transition-colors cursor-pointer flex items-center justify-center gap-2">
-        <i data-lucide="download" class="size-4"></i> Invoice
-      </button>
-    </div>
-  </div>
-</div>
 
 <!-- Search Modal -->
 <div id="search-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] hidden items-start justify-center pt-20 p-4 opacity-0 transition-opacity duration-300">
@@ -385,199 +309,179 @@
 </div>
 
 <script>
-// Data for Modals
-const itemsData = {
-  'ORD-8472': { id: 'ORD-8472', date: 'Oct 24, 2023, 14:30 PM', shop: 'Tech Haven Official', name: 'Sony WH-1000XM5 Headphones', price: '$348.00', status: 'success', img: 'https://images.unsplash.com/photo-1618366712010-f4ae9c647dcb?w=400&h=400&fit=crop' },
-  'ORD-8471': { id: 'ORD-8471', date: 'Oct 22, 2023, 09:15 AM', shop: 'Home Decor Studio', name: 'Minimalist Ceramic Vase', price: '$45.00', status: 'pending', img: 'https://images.unsplash.com/photo-1578500494198-246f612d3b3d?w=400&h=400&fit=crop' },
-  'ORD-8465': { id: 'ORD-8465', date: 'Oct 15, 2023, 16:45 PM', shop: 'Essential Wear', name: 'Organic Cotton T-Shirt', price: '$28.50', status: 'success', img: 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=400&h=400&fit=crop' },
-  'ORD-8450': { id: 'ORD-8450', date: 'Oct 10, 2023, 11:20 AM', shop: 'FitGear Pro', name: 'Smart Fitness Watch', price: '$129.00', status: 'failed', img: 'https://images.unsplash.com/photo-1579586337278-3befd40fd17a?w=400&h=400&fit=crop' },
-  'ORD-8422': { id: 'ORD-8422', date: 'Oct 02, 2023, 08:00 AM', shop: 'Roast Masters', name: 'Artisan Coffee Beans (1kg)', price: '$32.00', status: 'success', img: 'https://images.unsplash.com/photo-1559525839-b184a4d698c7?w=400&h=400&fit=crop' }
-};
 
-// Filtering Logic
-document.addEventListener('DOMContentLoaded', () => {
-  document.getElementById('searchInput')?.addEventListener('input', applyFilters);
-  document.getElementById('selectDateRange')?.addEventListener('change', applyFilters);
-});
 
-function applyFilters() {
-  const search = (document.getElementById('searchInput')?.value || '').toLowerCase().trim();
-  const status = document.getElementById('statusFilter')?.value || 'all';
-  let visible = 0;
-
-  document.querySelectorAll('[data-item-id]').forEach(item => {
-    const text = (item.dataset.searchable || '').toLowerCase();
-    const itemStatus = item.dataset.status;
-    
-    const matchesSearch = search === '' || text.includes(search);
-    const matchesStatus = status === 'all' || itemStatus === status;
-    
-    const show = matchesSearch && matchesStatus;
-    item.style.display = show ? '' : 'none';
-    if (show) visible++;
+  // Filtering Logic
+  document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('searchInput')?.addEventListener('input', applyFilters);
+    document.getElementById('selectDateRange')?.addEventListener('change', applyFilters);
   });
 
-  const noResults = document.getElementById('noResults');
-  if (noResults) {
-    if (visible === 0) {
-      noResults.classList.remove('hidden');
-      noResults.classList.add('flex');
-    } else {
-      noResults.classList.add('hidden');
-      noResults.classList.remove('flex');
+  function applyFilters() {
+    const search = (document.getElementById('searchInput')?.value || '').toLowerCase().trim();
+    const status = document.getElementById('statusFilter')?.value || 'all';
+    let visible = 0;
+
+    document.querySelectorAll('[data-item-id]').forEach(item => {
+      const text = (item.dataset.searchable || '').toLowerCase();
+      const itemStatus = item.dataset.status;
+      
+      const matchesSearch = search === '' || text.includes(search);
+      const matchesStatus = status === 'all' || itemStatus === status;
+      
+      const show = matchesSearch && matchesStatus;
+      item.style.display = show ? '' : 'none';
+      if (show) visible++;
+    });
+
+    const noResults = document.getElementById('noResults');
+    if (noResults) {
+      if (visible === 0) {
+        noResults.classList.remove('hidden');
+        noResults.classList.add('flex');
+      } else {
+        noResults.classList.add('hidden');
+        noResults.classList.remove('flex');
+      }
     }
   }
-}
 
-function filterByTab(type, value) {
-  document.querySelectorAll(`[data-filter-type="${type}"]`).forEach(btn => {
-    const isActive = btn.dataset.filterValue === value;
-    if (isActive) {
-      btn.classList.remove('border-transparent', 'text-secondary');
-      btn.classList.add('border-primary', 'text-primary');
-    } else {
-      btn.classList.add('border-transparent', 'text-secondary');
-      btn.classList.remove('border-primary', 'text-primary');
-    }
-  });
-  document.getElementById(`${type}Filter`).value = value;
-  applyFilters();
-}
-
-// Modal Logic
-function viewItem(id) {
-  const data = itemsData[id];
-  if (!data) return;
-  
-  document.getElementById('detailImage').src = data.img;
-  document.getElementById('detailName').textContent = data.name;
-  document.getElementById('detailShop').textContent = data.shop;
-  document.getElementById('detailId').textContent = data.id;
-  document.getElementById('detailDate').textContent = data.date;
-  document.getElementById('detailPrice').textContent = data.price;
-  
-  const statusContainer = document.getElementById('detailStatusContainer');
-  if (data.status === 'success') {
-    statusContainer.innerHTML = `<span class="bg-success/10 text-success text-xs font-semibold px-2.5 py-1 rounded-full flex items-center gap-1"><i data-lucide="check-circle-2" class="size-3"></i> Success</span>`;
-  } else if (data.status === 'pending') {
-    statusContainer.innerHTML = `<span class="bg-warning/10 text-warning text-xs font-semibold px-2.5 py-1 rounded-full flex items-center gap-1"><i data-lucide="clock" class="size-3"></i> Pending</span>`;
-  } else {
-    statusContainer.innerHTML = `<span class="bg-error/10 text-error text-xs font-semibold px-2.5 py-1 rounded-full flex items-center gap-1"><i data-lucide="x-circle" class="size-3"></i> Failed</span>`;
-  }
-  
-  lucide.createIcons();
-  
-  const modal = document.getElementById('detailModal');
-  const content = document.getElementById('detailModalContent');
-  modal.classList.remove('hidden');
-  modal.classList.add('flex');
-  
-  // Animation
-  requestAnimationFrame(() => {
-    modal.classList.remove('opacity-0');
-    content.classList.remove('scale-95');
-    content.classList.add('scale-100');
-  });
-}
-
-function closeDetail() {
-  const modal = document.getElementById('detailModal');
-  const content = document.getElementById('detailModalContent');
-  
-  modal.classList.add('opacity-0');
-  content.classList.remove('scale-100');
-  content.classList.add('scale-95');
-  
-  setTimeout(() => {
-    modal.classList.add('hidden');
-    modal.classList.remove('flex');
-  }, 300);
-}
-
-// Search Modal Logic
-function openSearchModal() { 
-  const modal = document.getElementById('search-modal');
-  const content = document.getElementById('searchModalContent');
-  modal.classList.remove('hidden'); 
-  modal.classList.add('flex'); 
-  
-  requestAnimationFrame(() => {
-    modal.classList.remove('opacity-0');
-    content.classList.remove('scale-95');
-    content.classList.add('scale-100');
-    document.getElementById('search-input-modal').focus(); 
-  });
-}
-
-function closeSearchModal() { 
-  const modal = document.getElementById('search-modal');
-  const content = document.getElementById('searchModalContent');
-  
-  modal.classList.add('opacity-0');
-  content.classList.remove('scale-100');
-  content.classList.add('scale-95');
-  
-  setTimeout(() => {
-    modal.classList.add('hidden'); 
-    modal.classList.remove('flex'); 
-  }, 300);
-}
-
-function handleSearch(val) {
-  // Sync with main search input if needed, or just handle local modal search
-  const mainInput = document.getElementById('searchInput');
-  if(mainInput) {
-    mainInput.value = val;
+  function filterByTab(type, value) {
+    document.querySelectorAll(`[data-filter-type="${type}"]`).forEach(btn => {
+      const isActive = btn.dataset.filterValue === value;
+      if (isActive) {
+        btn.classList.remove('border-transparent', 'text-secondary');
+        btn.classList.add('border-primary', 'text-primary');
+      } else {
+        btn.classList.add('border-transparent', 'text-secondary');
+        btn.classList.remove('border-primary', 'text-primary');
+      }
+    });
+    document.getElementById(`${type}Filter`).value = value;
     applyFilters();
   }
-}
 
-document.getElementById('search-modal').addEventListener('click', function(e) { if (e.target === this) closeSearchModal(); });
-document.getElementById('detailModal').addEventListener('click', function(e) { if (e.target === this) closeDetail(); });
+  // Modal Logic
+  function viewItem(detailModalId) {
 
-document.addEventListener('keydown', function(e) { 
-  if (e.key === 'Escape') {
-    closeSearchModal(); 
-    closeDetail();
+    lucide.createIcons();
+    
+    const modal = document.getElementById(detailModalId);
+    const content = document.getElementById('detailModalContent');
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+    
+    // Animation
+    requestAnimationFrame(() => {
+      modal.classList.remove('opacity-0');
+      content.classList.remove('scale-95');
+      content.classList.add('scale-100');
+    });
   }
-  if ((e.metaKey || e.ctrlKey) && e.key === 'k') { 
-    e.preventDefault(); 
-    openSearchModal(); 
-  } 
-});
 
-// Sidebar Toggle
-function toggleSidebar() {
-  document.getElementById('sidebar').classList.toggle('-translate-x-full');
-  document.getElementById('sidebar-overlay').classList.toggle('hidden');
-}
+  function closeDetail(detailModalId) {
+    const modal = document.getElementById(detailModalId);
+    const content = document.getElementById('detailModalContent');
+    
+    modal.classList.add('opacity-0');
+    content.classList.remove('scale-100');
+    content.classList.add('scale-95');
+    
+    setTimeout(() => {
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }, 300);
+  }
 
-// Toast Notification
-function showToast(msg, type='success') {
-  document.getElementById('toast')?.remove();
-  const t = document.createElement('div');
-  t.id = 'toast';
-  
-  let bgClass = type === 'success' ? 'bg-success' : type === 'error' ? 'bg-error' : 'bg-warning';
-  let icon = type === 'success' ? 'check-circle' : type === 'error' ? 'x-circle' : 'alert-circle';
-  
-  t.className = `fixed bottom-4 left-1/2 -translate-x-1/2 md:left-auto md:right-4 md:translate-x-0 ${bgClass} text-white px-5 py-3.5 rounded-2xl z-[200] transition-all duration-300 opacity-0 translate-y-[20px] shadow-lg flex items-center gap-3 font-medium`;
-  t.innerHTML = `<i data-lucide="${icon}" class="size-5"></i> ${msg}`;
-  
-  document.body.appendChild(t);
-  lucide.createIcons();
-  
-  requestAnimationFrame(() => {
-    t.classList.remove('opacity-0', 'translate-y-[20px]');
-    t.classList.add('opacity-100', 'translate-y-0');
+  // Search Modal Logic
+  function openSearchModal() { 
+    const modal = document.getElementById('search-modal');
+    const content = document.getElementById('searchModalContent');
+    modal.classList.remove('hidden'); 
+    modal.classList.add('flex'); 
+    
+    requestAnimationFrame(() => {
+      modal.classList.remove('opacity-0');
+      content.classList.remove('scale-95');
+      content.classList.add('scale-100');
+      document.getElementById('search-input-modal').focus(); 
+    });
+  }
+
+  document.addEventListener('click', function(e) {
+    if (e.target.id.startsWith('detailModal')) {
+      closeDetail(e.target.id);
+    }
   });
-  
-  setTimeout(() => {
-    t.classList.add('opacity-0', 'translate-y-[20px]');
-    t.classList.remove('opacity-100', 'translate-y-0');
-    setTimeout(() => t.remove(), 300);
-  }, 3000);
-}
+
+  function closeSearchModal() { 
+    const modal = document.getElementById('search-modal');
+    const content = document.getElementById('searchModalContent');
+    
+    modal.classList.add('opacity-0');
+    content.classList.remove('scale-100');
+    content.classList.add('scale-95');
+    
+    setTimeout(() => {
+      modal.classList.add('hidden'); 
+      modal.classList.remove('flex'); 
+    }, 300);
+  }
+
+  function handleSearch(val) {
+    // Sync with main search input if needed, or just handle local modal search
+    const mainInput = document.getElementById('searchInput');
+    if(mainInput) {
+      mainInput.value = val;
+      applyFilters();
+    }
+  }
+
+  document.getElementById('search-modal').addEventListener('click', function(e) { if (e.target === this) closeSearchModal(); });
+
+  document.addEventListener('keydown', function(e) { 
+    if (e.key === 'Escape') {
+      closeSearchModal(); 
+      closeDetail();
+    }
+    if ((e.metaKey || e.ctrlKey) && e.key === 'k') { 
+      e.preventDefault(); 
+      openSearchModal(); 
+    } 
+  });
+
+  // Sidebar Toggle
+  function toggleSidebar() {
+    document.getElementById('sidebar').classList.toggle('-translate-x-full');
+    document.getElementById('sidebar-overlay').classList.toggle('hidden');
+  }
+
+  // Toast Notification
+  function showToast(msg, type='success') {
+    document.getElementById('toast')?.remove();
+    const t = document.createElement('div');
+    t.id = 'toast';
+    
+    let bgClass = type === 'success' ? 'bg-success' : type === 'error' ? 'bg-error' : 'bg-warning';
+    let icon = type === 'success' ? 'check-circle' : type === 'error' ? 'x-circle' : 'alert-circle';
+    
+    t.className = `fixed bottom-4 left-1/2 -translate-x-1/2 md:left-auto md:right-4 md:translate-x-0 ${bgClass} text-white px-5 py-3.5 rounded-2xl z-[200] transition-all duration-300 opacity-0 translate-y-[20px] shadow-lg flex items-center gap-3 font-medium`;
+    t.innerHTML = `<i data-lucide="${icon}" class="size-5"></i> ${msg}`;
+    
+    document.body.appendChild(t);
+    lucide.createIcons();
+    
+    requestAnimationFrame(() => {
+      t.classList.remove('opacity-0', 'translate-y-[20px]');
+      t.classList.add('opacity-100', 'translate-y-0');
+    });
+    
+    setTimeout(() => {
+      t.classList.add('opacity-0', 'translate-y-[20px]');
+      t.classList.remove('opacity-100', 'translate-y-0');
+      setTimeout(() => t.remove(), 300);
+    }, 3000);
+  }
 </script>
 
 <script>

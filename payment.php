@@ -11,6 +11,7 @@
     if (isset($_POST['checkout'])) {
         $items = $_SESSION['cart'];
         $buyer = $_SESSION['buyer_id'];
+        $payment_method = $_POST['payment_method'];
         
         $subtotal = 0;
         foreach ($items as $item) {
@@ -26,8 +27,8 @@
 
         try {
             
-            $pre1 = $koneksi->prepare("INSERT INTO transaction (buyer_id, grandtotal) VALUES (?, ?)");
-            $pre1->bind_param("ii", $buyer, $grand_total);
+            $pre1 = $koneksi->prepare("INSERT INTO transaction (buyer_id, grandtotal, payment_method) VALUES (?, ?, ?)");
+            $pre1->bind_param("iis", $buyer, $grand_total, $payment_method);
             $pre1->execute();
             $transaction_id = $koneksi->insert_id;
 
@@ -203,6 +204,7 @@
         </div>
       </div>
 
+      <form action="" method="post">
       <!-- Virtual Accounts -->
       <div class="bg-white rounded-2xl border border-border overflow-hidden">
         <div class="p-5 border-b border-border bg-card-grey/50">
@@ -339,7 +341,7 @@
         </div>
 
         <!-- Action Button -->
-         <form action="" method="post">
+         
            <button type="submit" name="checkout" id="btnPayNow" disabled class="w-full bg-primary text-white rounded-full py-4 font-bold text-lg hover:bg-primary-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2">
              <i data-lucide="lock" class="w-5 h-5"></i>
              Pay $<?= number_format($grandtotal, 0, ",", ".") ?>

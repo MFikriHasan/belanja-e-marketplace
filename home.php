@@ -296,7 +296,7 @@ $most_picked = $exec->fetch_all(MYSQLI_ASSOC);
               unset($_SESSION['success']); 
           ?>
           
-      <?php endif; ?>
+    <?php endif; ?>
   });
 
   

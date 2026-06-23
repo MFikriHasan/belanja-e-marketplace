@@ -30,7 +30,7 @@
         </a>
         
         <!-- Notifications -->
-        <a href="/history_transaction.html" class=" p-2 text-secondary hover:text-primary hover:bg-muted rounded-full transition-colors relative cursor-pointer">
+        <a href="/history_transaction.php" class=" p-2 text-secondary hover:text-primary hover:bg-muted rounded-full transition-colors relative cursor-pointer">
           <i data-lucide="bell" class="h-6 w-6"></i>
           <span class="absolute top-1 right-1 bg-red-500 text-white text-[10px] font-bold h-2 w-2 rounded-full border-2 border-white"></span>
         </a>
