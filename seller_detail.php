@@ -2,6 +2,54 @@
   require 'koneksi.php';
   include 'login_check.php';
   check_access_control('buyer');
+
+  $seller_id = (int)$_GET['id'];
+
+  // seller profile
+  $q_profile = "SELECT * FROM seller WHERE id = ?";
+  $pre = $koneksi->prepare($q_profile);
+
+  $pre->bind_param("i", $seller_id);
+  $pre->execute();
+  $seller = $pre->get_result()->fetch_assoc();
+  
+  // seller category list
+  $q_category = "SELECT c.id, 
+                c.name AS category_name, 
+                c.icon AS category_icon,
+                COUNT(p.id) AS total_products
+                FROM category c
+                JOIN product p ON  p.category_id = c.id
+                WHERE p.seller_id = ?
+                GROUP BY c.id
+                ORDER BY total_products DESC";
+    $pre = $koneksi->prepare($q_category);
+    $pre->bind_param("i", $seller_id);
+    $pre->execute();
+    $categories = $pre->get_result()->fetch_all(MYSQLI_ASSOC);
+    
+    // sidebar category filter
+    $category_filter = isset($_GET['category_id']) ? (int)$_GET['category_id'] : 0;
+    
+    $q_products = "SELECT p.id,
+                  p.name AS product_name,
+                  p.price,
+                  (SELECT cv.product_image FROM color_varian cv WHERE cv.product_id = p.id LIMIT 1) AS product_image,
+                  COALESCE((SELECT SUM(td.qty) FROM transaction_det td WHERE td.color_varian_id IN (SELECT id FROM color_varian WHERE product_id = p.id)), 0) AS sold_total
+                  FROM product p
+                  WHERE p.seller_id = ?";
+    
+    if ($category_filter > 0) {
+    $q_products .= " AND p.category_id = " . $category_filter;
+    }
+
+    $q_products .= " ORDER BY p.id DESC";
+
+    $q_products = $koneksi->prepare($q_products);
+    $q_products->bind_param("i", $seller_id);
+    $q_products->execute();
+    $products = $q_products->get_result()->fetch_all(MYSQLI_ASSOC);
+    
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -59,14 +107,14 @@
     
     <div class="flex items-center gap-4 md:gap-6 relative z-10">
       <div class="relative">
-        <img src="https://images.unsplash.com/photo-1611186871348-b1ce696e52c9?w=200&h=200&fit=crop" alt="Store Logo" class="w-16 h-16 md:w-20 md:h-20 rounded-full object-cover border-2 border-white shadow-sm">
+        <img src="<?= !empty($seller['logo']) ? 'storage/image/' . $seller['logo'] : 'https://images.unsplash.com/photo-1560179707-f14e90ef3623?w=200&h=200&fit=crop' ?>" alt="Store Logo" class="w-16 h-16 md:w-20 md:h-20 rounded-full object-cover border-2 border-white shadow-sm">
         <div class="absolute bottom-0 right-0 w-5 h-5 bg-success border-2 border-white rounded-full flex items-center justify-center" title="Verified Store">
           <i data-lucide="check" class="w-3 h-3 text-white"></i>
         </div>
       </div>
       <div>
         <div class="flex items-center gap-2 mb-1">
-          <h1 class="font-bold text-xl md:text-2xl text-foreground">Blayd Official</h1>
+          <h1 class="font-bold text-xl md:text-2xl text-foreground"><?= $seller['name'] ?></h1>
           <span class="bg-primary/10 text-primary text-[10px] font-bold px-2 py-0.5 rounded-md uppercase tracking-wider hidden sm:inline-block">Mall</span>
         </div>
         <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-secondary">
@@ -102,49 +150,47 @@
 
   <div class="flex flex-col lg:flex-row gap-8 mt-6 lg:mt-8">
     
-    <!-- Sidebar Catalog (Desktop) -->
-    <aside class="hidden lg:block w-64 shrink-0">
-      <div class="sticky top-24 bg-white rounded-2xl border border-border p-4">
-        <h3 class="font-bold text-sm text-secondary uppercase tracking-wider mb-4 px-2">Categories</h3>
-        <nav class="flex flex-col gap-1">
-          <a href="#" class="flex items-center justify-between px-3 py-2.5 bg-primary/10 text-primary rounded-xl font-medium transition-colors">
+   <!-- Sidebar Catalog (Desktop) -->
+  <aside class="hidden lg:block w-64 shrink-0">
+    <div class="sticky top-24 bg-white rounded-2xl border border-border p-4">
+      <h3 class="font-bold text-sm text-secondary uppercase tracking-wider mb-4 px-2">Categories</h3>
+      <nav class="flex flex-col gap-1">
+        
+        
+        <?php 
+        
+        $is_all_active = ($category_filter == 0); 
+        ?>
+        <a href="?id=<?= $seller_id ?>" 
+          class="flex items-center justify-between px-3 py-2.5 rounded-xl font-medium transition-colors <?= $is_all_active ? 'bg-primary/10 text-primary' : 'text-secondary hover:bg-card-grey hover:text-foreground' ?>">
+          <div class="flex items-center gap-3">
+            <i data-lucide="layout-grid" class="w-5 h-5"></i>
+            <span>All Products</span>
+          </div>
+        </a>
+
+        
+        <?php foreach ($categories as $row): ?>
+          <?php 
+          
+          $is_category_active = ($category_filter == $row['id']); 
+          ?>
+          <a href="?id=<?= $seller_id ?>&category_id=<?= $row['id'] ?>"  
+            class="flex items-center justify-between px-3 py-2.5 rounded-xl font-medium transition-colors <?= $is_category_active ? 'bg-primary/10 text-primary' : 'text-secondary hover:bg-card-grey hover:text-foreground' ?>">
             <div class="flex items-center gap-3">
-              <i data-lucide="layout-grid" class="w-5 h-5"></i>
-              <span>All Products</span>
+              
+              <i data-lucide="<?= !empty($row['category_icon']) ? $row['category_icon'] : 'tag' ?>" class="w-5 h-5"></i>
+              <span><?= $row['category_name'] ?></span>
             </div>
-            <span class="text-xs bg-white px-2 py-0.5 rounded-full">124</span>
+            <span class="text-xs px-2 py-0.5 rounded-full <?= $is_category_active ? 'bg-primary/20 text-primary' : 'bg-card-grey' ?>">
+              <?= $row['total_products'] ?? 0 ?>
+            </span>
           </a>
-          <a href="#" class="flex items-center justify-between px-3 py-2.5 text-secondary hover:bg-card-grey hover:text-foreground rounded-xl font-medium transition-colors">
-            <div class="flex items-center gap-3">
-              <i data-lucide="headphones" class="w-5 h-5"></i>
-              <span>Audio</span>
-            </div>
-            <span class="text-xs bg-card-grey px-2 py-0.5 rounded-full">45</span>
-          </a>
-          <a href="#" class="flex items-center justify-between px-3 py-2.5 text-secondary hover:bg-card-grey hover:text-foreground rounded-xl font-medium transition-colors">
-            <div class="flex items-center gap-3">
-              <i data-lucide="watch" class="w-5 h-5"></i>
-              <span>Wearables</span>
-            </div>
-            <span class="text-xs bg-card-grey px-2 py-0.5 rounded-full">32</span>
-          </a>
-          <a href="#" class="flex items-center justify-between px-3 py-2.5 text-secondary hover:bg-card-grey hover:text-foreground rounded-xl font-medium transition-colors">
-            <div class="flex items-center gap-3">
-              <i data-lucide="laptop" class="w-5 h-5"></i>
-              <span>Computing</span>
-            </div>
-            <span class="text-xs bg-card-grey px-2 py-0.5 rounded-full">18</span>
-          </a>
-          <a href="#" class="flex items-center justify-between px-3 py-2.5 text-secondary hover:bg-card-grey hover:text-foreground rounded-xl font-medium transition-colors">
-            <div class="flex items-center gap-3">
-              <i data-lucide="cable" class="w-5 h-5"></i>
-              <span>Accessories</span>
-            </div>
-            <span class="text-xs bg-card-grey px-2 py-0.5 rounded-full">29</span>
-          </a>
-        </nav>
-      </div>
-    </aside>
+        <?php endforeach; ?>
+
+      </nav>
+    </div>
+  </aside>
 
     <!-- Main Content Area -->
     <div class="flex-1 min-w-0 flex flex-col gap-8">
@@ -236,135 +282,36 @@
         
         <div class="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
           
-          <!-- Product 1 -->
-          <div class="group bg-white rounded-2xl border border-border overflow-hidden hover:shadow-xl hover:border-primary/30 transition-all duration-300 cursor-pointer flex flex-col">
-            <div class="relative aspect-square bg-card-grey overflow-hidden">
-              <img src="https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=500&h=500&fit=crop" alt="Headphones" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500">
-              <div class="absolute top-3 left-3 bg-error text-white text-xs font-bold px-2.5 py-1 rounded-full shadow-sm">-20%</div>
-              <button class="absolute top-3 right-3 w-8 h-8 bg-white/80 backdrop-blur-sm rounded-full flex items-center justify-center text-secondary hover:text-error hover:bg-white transition-colors shadow-sm opacity-0 group-hover:opacity-100 translate-y-2 group-hover:translate-y-0 duration-300">
-                <i data-lucide="heart" class="w-4 h-4"></i>
-              </button>
-            </div>
-            <div class="p-4 flex flex-col flex-1">
-              <a href="product_detail.html">
-                <h3 class="font-medium text-sm md:text-base text-foreground line-clamp-2 mb-2 group-hover:text-primary transition-colors">Sony WH-1000XM4 Wireless Noise Canceling Headphones</h3>
-              </a>
-              <div class="mt-auto">
-                <div class="flex items-center gap-1 mb-2">
-                  <i data-lucide="star" class="w-3.5 h-3.5 text-warning fill-warning"></i>
-                  <span class="text-xs font-medium text-secondary">4.9 <span class="text-border mx-1">|</span> 1.2k sold</span>
-                </div>
-                <div class="flex items-end justify-between">
-                  <div>
-                    <p class="font-bold text-lg md:text-xl text-primary">$278.00</p>
-                    <p class="text-xs text-secondary line-through">$348.00</p>
+          <?php foreach ($products as $row): ?>
+            <div class="group bg-white rounded-2xl border border-border overflow-hidden hover:shadow-xl hover:border-primary/30 transition-all duration-300 cursor-pointer flex flex-col">
+              <div class="relative aspect-square bg-card-grey overflow-hidden">
+                <img src="<?= !empty($row['product_image']) ? 'storage/image/' . $row['product_image'] : 'https://images.unsplash.com/photo-1618366712010-f4ae9c647dcb?w=500&h=500&fit=crop' ?>" alt="Watch" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500">
+                <button class="absolute top-3 right-3 w-8 h-8 bg-white/80 backdrop-blur-sm rounded-full flex items-center justify-center text-secondary hover:text-error hover:bg-white transition-colors shadow-sm opacity-0 group-hover:opacity-100 translate-y-2 group-hover:translate-y-0 duration-300">
+                  <i data-lucide="heart" class="w-4 h-4"></i>
+                </button>
+              </div>
+              <div class="p-4 flex flex-col flex-1">
+                <a href="product_detail.php?id=<?= $row['id'] ?>">
+                  <h3 class="font-medium text-sm md:text-base text-foreground line-clamp-2 mb-2 group-hover:text-primary transition-colors"><?= $row['product_name'] ?></h3>
+                </a>
+                <div class="mt-auto">
+                  <div class="flex items-center gap-1 mb-2">
+                    <i data-lucide="star" class="w-3.5 h-3.5 text-warning fill-warning"></i>
+                    <span class="text-xs font-medium text-secondary">4.8 <span class="text-border mx-1">|</span> <?= number_format($row['sold_total'], 0, ",", ".") ?> Sold</span>
                   </div>
-                  <button onclick="event.stopPropagation(); showToast('Added to cart')" class="w-9 h-9 rounded-full bg-primary/10 text-primary flex items-center justify-center hover:bg-primary hover:text-white transition-colors shrink-0">
-                    <i data-lucide="plus" class="w-5 h-5"></i>
-                  </button>
+                  <div class="flex items-end justify-between">
+                    <div>
+                      <p class="font-bold text-lg md:text-xl text-foreground">$<?= number_format($row['price'], 0, ",", ".") ?></p>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
+          <?php endforeach; ?>
 
-          <!-- Product 2 -->
-          <div class="group bg-white rounded-2xl border border-border overflow-hidden hover:shadow-xl hover:border-primary/30 transition-all duration-300 cursor-pointer flex flex-col">
-            <div class="relative aspect-square bg-card-grey overflow-hidden">
-              <img src="https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=500&h=500&fit=crop" alt="Watch" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500">
-              <button class="absolute top-3 right-3 w-8 h-8 bg-white/80 backdrop-blur-sm rounded-full flex items-center justify-center text-secondary hover:text-error hover:bg-white transition-colors shadow-sm opacity-0 group-hover:opacity-100 translate-y-2 group-hover:translate-y-0 duration-300">
-                <i data-lucide="heart" class="w-4 h-4"></i>
-              </button>
-            </div>
-            <div class="p-4 flex flex-col flex-1">
-              <a href="product_detail.html">
-                <h3 class="font-medium text-sm md:text-base text-foreground line-clamp-2 mb-2 group-hover:text-primary transition-colors">Apple Watch Series 8 GPS 45mm Aluminum Case</h3>
-              </a>
-              <div class="mt-auto">
-                <div class="flex items-center gap-1 mb-2">
-                  <i data-lucide="star" class="w-3.5 h-3.5 text-warning fill-warning"></i>
-                  <span class="text-xs font-medium text-secondary">4.8 <span class="text-border mx-1">|</span> 850 sold</span>
-                </div>
-                <div class="flex items-end justify-between">
-                  <div>
-                    <p class="font-bold text-lg md:text-xl text-foreground">$399.00</p>
-                  </div>
-                  <button onclick="event.stopPropagation(); showToast('Added to cart')" class="w-9 h-9 rounded-full bg-primary/10 text-primary flex items-center justify-center hover:bg-primary hover:text-white transition-colors shrink-0">
-                    <i data-lucide="plus" class="w-5 h-5"></i>
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Product 3 -->
-          <div class="group bg-white rounded-2xl border border-border overflow-hidden hover:shadow-xl hover:border-primary/30 transition-all duration-300 cursor-pointer flex flex-col">
-            <div class="relative aspect-square bg-card-grey overflow-hidden">
-              <img src="https://images.unsplash.com/photo-1606220588913-b3aacb4d2f46?w=500&h=500&fit=crop" alt="Earbuds" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500">
-              <div class="absolute top-3 left-3 bg-warning text-white text-xs font-bold px-2.5 py-1 rounded-full shadow-sm">Hot</div>
-              <button class="absolute top-3 right-3 w-8 h-8 bg-white/80 backdrop-blur-sm rounded-full flex items-center justify-center text-secondary hover:text-error hover:bg-white transition-colors shadow-sm opacity-0 group-hover:opacity-100 translate-y-2 group-hover:translate-y-0 duration-300">
-                <i data-lucide="heart" class="w-4 h-4"></i>
-              </button>
-            </div>
-            <div class="p-4 flex flex-col flex-1">
-              <a href="product_detail.html">
-                <h3 class="font-medium text-sm md:text-base text-foreground line-clamp-2 mb-2 group-hover:text-primary transition-colors">Samsung Galaxy Buds Pro True Wireless Earbuds</h3>
-                
-              </a>
-              <div class="mt-auto">
-                <div class="flex items-center gap-1 mb-2">
-                  <i data-lucide="star" class="w-3.5 h-3.5 text-warning fill-warning"></i>
-                  <span class="text-xs font-medium text-secondary">4.7 <span class="text-border mx-1">|</span> 2.1k sold</span>
-                </div>
-                <div class="flex items-end justify-between">
-                  <div>
-                    <p class="font-bold text-lg md:text-xl text-foreground">$149.99</p>
-                  </div>
-                  <button onclick="event.stopPropagation(); showToast('Added to cart')" class="w-9 h-9 rounded-full bg-primary/10 text-primary flex items-center justify-center hover:bg-primary hover:text-white transition-colors shrink-0">
-                    <i data-lucide="plus" class="w-5 h-5"></i>
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Product 4 -->
-          <div class="group bg-white rounded-2xl border border-border overflow-hidden hover:shadow-xl hover:border-primary/30 transition-all duration-300 cursor-pointer flex flex-col">
-            <div class="relative aspect-square bg-card-grey overflow-hidden">
-              <img src="https://images.unsplash.com/photo-1496181133206-80ce9b88a853?w=500&h=500&fit=crop" alt="Laptop" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500">
-              <div class="absolute top-3 left-3 bg-error text-white text-xs font-bold px-2.5 py-1 rounded-full shadow-sm">-15%</div>
-              <button class="absolute top-3 right-3 w-8 h-8 bg-white/80 backdrop-blur-sm rounded-full flex items-center justify-center text-secondary hover:text-error hover:bg-white transition-colors shadow-sm opacity-0 group-hover:opacity-100 translate-y-2 group-hover:translate-y-0 duration-300">
-                <i data-lucide="heart" class="w-4 h-4"></i>
-              </button>
-            </div>
-            <div class="p-4 flex flex-col flex-1">
-              <a href="product_detail.html">
-                <h3 class="font-medium text-sm md:text-base text-foreground line-clamp-2 mb-2 group-hover:text-primary transition-colors">MacBook Air M2 Chip 13.6-inch Liquid Retina Display</h3>
-              </a>
-              <div class="mt-auto">
-                <div class="flex items-center gap-1 mb-2">
-                  <i data-lucide="star" class="w-3.5 h-3.5 text-warning fill-warning"></i>
-                  <span class="text-xs font-medium text-secondary">5.0 <span class="text-border mx-1">|</span> 430 sold</span>
-                </div>
-                <div class="flex items-end justify-between">
-                  <div>
-                    <p class="font-bold text-lg md:text-xl text-primary">$1,019.00</p>
-                    <p class="text-xs text-secondary line-through">$1,199.00</p>
-                  </div>
-                  <button onclick="event.stopPropagation(); showToast('Added to cart')" class="w-9 h-9 rounded-full bg-primary/10 text-primary flex items-center justify-center hover:bg-primary hover:text-white transition-colors shrink-0">
-                    <i data-lucide="plus" class="w-5 h-5"></i>
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
 
         </div>
         
-        <div class="mt-8 flex justify-center">
-          <button class="px-8 py-3 rounded-full border-2 border-border text-foreground font-bold hover:border-primary hover:text-primary transition-colors">
-            Load More Products
-          </button>
-        </div>
       </section>
 
     </div>
@@ -381,14 +328,14 @@
     </div>
     <div class="px-6 pb-6 relative mt-3">
       <div class="flex justify-between items-end -mt-12 mb-4">
-        <img src="https://images.unsplash.com/photo-1611186871348-b1ce696e52c9?w=200&h=200&fit=crop" alt="Store Logo" class="w-24 h-24 rounded-full object-cover border-4 border-white shadow-md bg-white">
+        <img src="<?= !empty($seller['logo']) ? 'storage/image/' . $seller['logo'] : 'https://images.unsplash.com/photo-1560179707-f14e90ef3623?w=100&h=100&fit=crop' ?>" alt="Store Logo" class="w-24 h-24 rounded-full object-cover border-4 border-white shadow-md bg-white">
         <button class="px-6 py-2 bg-primary text-white font-bold rounded-full hover:bg-primary-hover transition-colors shadow-sm mb-2">
           Follow
         </button>
       </div>
       
-      <h2 id="detailStoreName" class="font-bold text-2xl mb-1">Blayd Official</h2>
-      <p class="text-secondary text-sm mb-6">Your premium destination for authentic tech gadgets and accessories.</p>
+      <h2 id="detailStoreName" class="font-bold text-2xl mb-1"><?= $seller['name'] ?></h2>
+      <p class="text-secondary text-sm mb-6"><?= $seller['description'] ?? 'This shop has no description yet.' ?></p>
       
       <div class="space-y-4">
         <div class="flex items-center gap-4 p-3 rounded-2xl bg-card-grey">
@@ -407,7 +354,7 @@
           </div>
           <div>
             <p class="text-xs text-secondary font-medium">Operational Hours</p>
-            <p class="font-bold text-foreground">Mon - Sun, 09:00 - 22:00</p>
+            <p class="font-bold text-foreground"><?= !empty($seller['opening_hour']) ? date("H:i", strtotime($seller['opening_hour'])) : '09.00' ?> - <?= !empty($seller['opening_hour']) ? date("H:i", strtotime($seller['closing_hour'])) : '17.00' ?></p>
           </div>
         </div>
         
@@ -417,7 +364,7 @@
           </div>
           <div>
             <p class="text-xs text-secondary font-medium">Location</p>
-            <p class="font-bold text-foreground">Silicon Valley, CA</p>
+            <p class="font-bold text-foreground"><?= $seller['address'] ?? 'This shop has not set up location yet.' ?></p>
           </div>
         </div>
       </div>
@@ -528,37 +475,7 @@
     console.log('Searching for:', val);
   }
 
-  // Toast Notification Logic
-  function showToast(msg, type = 'success') {
-    document.getElementById('toast')?.remove();
-    const t = document.createElement('div');
-    t.id = 'toast';
-    
-    // Styling based on type
-    const bgClass = type === 'success' ? 'bg-foreground' : 'bg-error';
-    const icon = type === 'success' ? 'check-circle' : 'alert-circle';
-    
-    t.className = `fixed bottom-4 left-1/2 -translate-x-1/2 md:left-auto md:translate-x-0 md:right-8 ${bgClass} text-white px-5 py-3.5 rounded-2xl z-[110] transition-all duration-300 opacity-0 translate-y-[20px] flex items-center gap-3 shadow-xl font-medium text-sm`;
-    
-    t.innerHTML = `
-      <i data-lucide="${icon}" class="w-5 h-5"></i>
-      <span>${msg}</span>
-    `;
-    
-    document.body.appendChild(t);
-    lucide.createIcons();
-    
-    requestAnimationFrame(() => {
-      t.classList.remove('opacity-0', 'translate-y-[20px]');
-      t.classList.add('opacity-100', 'translate-y-0');
-    });
-    
-    setTimeout(() => {
-      t.classList.add('opacity-0', 'translate-y-[20px]');
-      t.classList.remove('opacity-100', 'translate-y-0');
-      setTimeout(() => t.remove(), 300);
-    }, 3000);
-  }
+  
 </script>
 
 

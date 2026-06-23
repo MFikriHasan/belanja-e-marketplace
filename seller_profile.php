@@ -12,8 +12,21 @@ $success_message = '';
 $error_message = '';
 $seller = array();
 
+// total sales
+$q_total_sales = "SELECT COALESCE(SUM(td.qty), 0) AS total_sales 
+                  FROM transaction_det td
+                  WHERE td.seller_id = ? ";
+
+$stmt_sales = $koneksi->prepare($q_total_sales);
+$stmt_sales->bind_param("i", $seller_id);
+$stmt_sales->execute();
+$res_sales = $stmt_sales->get_result()->fetch_assoc();
+
+
+$total_sales = $res_sales['total_sales'];
+
 // Ambil data seller dari database
-$query = "SELECT id, name, email, description, address, opening_hour, closing_hour FROM seller WHERE id = ?";
+$query = "SELECT id, name, email, description, address, opening_hour, closing_hour, created_at FROM seller WHERE id = ?";
 $stmt = $koneksi->prepare($query);
 $stmt->bind_param('i', $seller_id);
 $stmt->execute();
@@ -290,11 +303,11 @@ $stmt->close();
             <div class="space-y-4">
               <div class="flex justify-between items-center">
                 <span class="text-secondary text-sm">Member Since</span>
-                <span class="font-medium text-sm">Oct 2022</span>
+                <span class="font-medium text-sm"><?= date("d M Y", strtotime($seller['created_at'])) ?></span>
               </div>
               <div class="flex justify-between items-center">
                 <span class="text-secondary text-sm">Total Sales</span>
-                <span class="font-medium text-sm">1,248</span>
+                <span class="font-medium text-sm"><?= number_format($total_sales, 0, ',', '.') ?></span>
               </div>
               <div class="flex justify-between items-center">
                 <span class="text-secondary text-sm">Rating</span>

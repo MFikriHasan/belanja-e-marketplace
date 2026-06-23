@@ -132,18 +132,13 @@ if (isset($_POST['submit'])) {
     <!-- Bottom: Social Proof / Stats -->
     <div class="relative z-10 flex items-center gap-8 pt-12 border-t border-white/20 mt-12">
       <div>
-        <p class="text-white text-2xl font-bold">11/5</p>
-        <p class="text-white/70 text-sm mt-1">BGN Store Rating</p>
+        <p class="text-white text-2xl font-bold">4.5/5</p>
+        <p class="text-white/70 text-sm mt-1">App Store Rating</p>
       </div>
       <div class="w-px h-10 bg-white/20"></div>
       <div>
         <p class="text-white text-2xl font-bold">24/7</p>
         <p class="text-white/70 text-sm mt-1">Customer Support</p>
-      </div>
-      <div class="w-px h-10 bg-white/20"></div>
-      <div>
-        <p class="text-white text-2xl font-bold">11/100</p>
-        <p class="text-white/70 text-sm mt-1">Anies Gambit</p>
       </div>
     </div>
   </div>
@@ -163,7 +158,7 @@ if (isset($_POST['submit'])) {
       
       <!-- Header -->
       <div class="mb-8 text-center lg:text-left">
-        <h2 class="text-3xl font-bold text-foreground mb-2">Welcome Back Blyad</h2>
+        <h2 class="text-3xl font-bold text-foreground mb-2">Welcome Back</h2>
         <p class="text-secondary">Please enter your details to sign in to your account.</p>
       </div>
 

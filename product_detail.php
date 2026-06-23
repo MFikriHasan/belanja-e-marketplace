@@ -69,8 +69,8 @@
   }
   
 
-  $str_id = $_GET['id'];
-  $product_id = (int)$str_id;
+  
+  $product_id = (int)$_GET['id'];
 
   if ($product_id === 0) {
     header('Location: /home.php');
@@ -103,6 +103,21 @@
   $pre3->execute();
   $specifications = $pre3->get_result();
 
+  // other products
+
+  $q_products = "SELECT p.id,
+                p.name,
+                p.price,
+                (SELECT cv.product_image FROM color_varian cv WHERE cv.product_id = p.id LIMIT 1) AS product_image
+                FROM product p
+                WHERE p.id != ?
+                ORDER BY RAND()
+                LIMIT 4";
+  $pre4 = $koneksi->prepare($q_products);
+  $pre4->bind_param("i", $product_id);
+  $pre4->execute();
+  $other_products = $pre4->get_result()->fetch_all(MYSQLI_ASSOC);
+  
 
 ?>
 
@@ -451,104 +466,31 @@
   <div class="mt-16 mb-8">
     <div class="flex items-center justify-between mb-6">
       <h2 class="text-2xl font-bold text-foreground">You Might Also Like</h2>
-      <div class="flex gap-2">
-        <button class="size-10 rounded-full border border-border flex items-center justify-center hover:bg-muted transition-colors cursor-pointer"><i data-lucide="chevron-left" class="size-5"></i></button>
-        <button class="size-10 rounded-full border border-border flex items-center justify-center hover:bg-muted transition-colors cursor-pointer"><i data-lucide="chevron-right" class="size-5"></i></button>
-      </div>
     </div>
     
     <div class="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
-      <!-- Product Card 1 -->
-      <div class="group flex flex-col bg-white rounded-2xl border border-border overflow-hidden hover:shadow-lg hover:border-primary/30 transition-all duration-300">
-        <div class="relative aspect-square bg-card-grey p-4 flex items-center justify-center overflow-hidden">
-          <img src="https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=400&h=400&fit=crop" alt="Earbuds" class="w-full h-full object-contain group-hover:scale-110 transition-transform duration-500">
-          <button class="absolute top-3 right-3 size-8 bg-white rounded-full shadow-sm flex items-center justify-center text-secondary hover:text-error transition-colors opacity-0 group-hover:opacity-100 translate-y-2 group-hover:translate-y-0 cursor-pointer">
-            <i data-lucide="heart" class="size-4"></i>
-          </button>
-        </div>
-        <div class="p-4 flex flex-col flex-1">
-          <h3 class="font-medium text-foreground text-sm line-clamp-2 mb-1 group-hover:text-primary transition-colors">Nike Air Max 270 React Running Shoes</h3>
-          <div class="flex items-center gap-1 text-warning mb-2">
-            <i data-lucide="star" class="size-3 fill-current"></i><span class="text-xs text-secondary ml-1">4.6</span>
-          </div>
-          <div class="mt-auto flex items-center justify-between">
-            <span class="font-bold text-lg text-foreground">$278.00</span>
-            <button onclick="addToCart()" class="size-8 bg-primary/10 text-primary rounded-full flex items-center justify-center hover:bg-primary hover:text-white transition-colors cursor-pointer">
-              <i data-lucide="plus" class="size-4"></i>
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <!-- Product Card 2 -->
-      <div class="group flex flex-col bg-white rounded-2xl border border-border overflow-hidden hover:shadow-lg hover:border-primary/30 transition-all duration-300">
-        <div class="relative aspect-square bg-card-grey p-4 flex items-center justify-center overflow-hidden">
-          <span class="absolute top-3 left-3 bg-error text-white text-[10px] font-bold px-2 py-1 rounded-md uppercase z-10">-20%</span>
-          <img src="https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&q=80&fit=crop" alt="Headphones" class="w-full h-full object-contain group-hover:scale-110 transition-transform duration-500">
-          <button  class="absolute top-3 right-3 size-8 bg-white rounded-full shadow-sm flex items-center justify-center text-secondary hover:text-error transition-colors opacity-0 group-hover:opacity-100 translate-y-2 group-hover:translate-y-0 cursor-pointer">
-            <i data-lucide="heart" class="size-4"></i>
-          </button>
-        </div>
-        <div class="p-4 flex flex-col flex-1">
-          <h3 class="font-medium text-foreground text-sm line-clamp-2 mb-1 group-hover:text-primary transition-colors">Bose QuietComfort 45 Wireless Headphones</h3>
-          <div class="flex items-center gap-1 text-warning mb-2">
-            <i data-lucide="star" class="size-3 fill-current"></i><span class="text-xs text-secondary ml-1">4.7</span>
-          </div>
-          <div class="mt-auto flex items-center justify-between">
-            <div class="flex flex-col">
-              <span class="font-bold text-lg text-foreground">$329.00</span>
-              <span class="text-xs text-secondary line-through">$399.00</span>
+      <?php foreach ($other_products as $row): ?>
+        <a href="product_detail.php?id=<?= $row['id'] ?>">
+          <div class="group flex flex-col bg-white rounded-2xl border border-border overflow-hidden hover:shadow-lg hover:border-primary/30 transition-all duration-300">
+            <div class="relative aspect-square bg-card-grey p-4 flex items-center justify-center overflow-hidden">
+              <img src="<?= !empty($row['product_image']) ? 'storage/image/' . $row['product_image'] : 'https://images.unsplash.com/photo-1618366712010-f4ae9c647dcb?w=400&h=400&fit=crop' ?>" alt="Product Name" class="w-full h-full object-contain group-hover:scale-110 transition-transform duration-500">
+              <button class="absolute top-3 right-3 size-8 bg-white rounded-full shadow-sm flex items-center justify-center text-secondary hover:text-error transition-colors opacity-0 group-hover:opacity-100 translate-y-2 group-hover:translate-y-0 cursor-pointer">
+                <i data-lucide="heart" class="size-4"></i>
+              </button>
             </div>
-            <button onclick="addToCart()" class="size-8 bg-primary/10 text-primary rounded-full flex items-center justify-center hover:bg-primary hover:text-white transition-colors cursor-pointer">
-              <i data-lucide="plus" class="size-4"></i>
-            </button>
+            <div class="p-4 flex flex-col flex-1">
+              <h3 class="font-medium text-foreground text-sm line-clamp-2 mb-1 group-hover:text-primary transition-colors"><?= $row['name'] ?></h3>
+              <div class="flex items-center gap-1 text-warning mb-2">
+                <i data-lucide="star" class="size-3 fill-current"></i><span class="text-xs text-secondary ml-1">4.6</span>
+              </div>
+              <div class="mt-auto flex items-center justify-between">
+                <span class="font-bold text-lg text-foreground">$<?= number_format($row['price'], 0, ",", ".") ?></span>
+              </div>
+            </div>
           </div>
-        </div>
-      </div>
+        </a>
+      <?php endforeach; ?>
 
-      <!-- Product Card 3 -->
-      <div class="group flex flex-col bg-white rounded-2xl border border-border overflow-hidden hover:shadow-lg hover:border-primary/30 transition-all duration-300">
-        <div class="relative aspect-square bg-card-grey p-4 flex items-center justify-center overflow-hidden">
-          <img src="https://images.unsplash.com/photo-1583394838336-acd977736f90?w=400&q=80&fit=crop" alt="Speaker" class="w-full h-full object-contain group-hover:scale-110 transition-transform duration-500">
-          <button class="absolute top-3 right-3 size-8 bg-white rounded-full shadow-sm flex items-center justify-center text-secondary hover:text-error transition-colors opacity-0 group-hover:opacity-100 translate-y-2 group-hover:translate-y-0 cursor-pointer">
-            <i data-lucide="heart" class="size-4"></i>
-          </button>
-        </div>
-        <div class="p-4 flex flex-col flex-1">
-          <h3 class="font-medium text-foreground text-sm line-clamp-2 mb-1 group-hover:text-primary transition-colors">Sony SRS-XB43 Portable Bluetooth Speaker</h3>
-          <div class="flex items-center gap-1 text-warning mb-2">
-            <i data-lucide="star" class="size-3 fill-current"></i><span class="text-xs text-secondary ml-1">4.5</span>
-          </div>
-          <div class="mt-auto flex items-center justify-between">
-            <span class="font-bold text-lg text-foreground">$198.00</span>
-            <button onclick="addToCart()" class="size-8 bg-primary/10 text-primary rounded-full flex items-center justify-center hover:bg-primary hover:text-white transition-colors cursor-pointer">
-              <i data-lucide="plus" class="size-4"></i>
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <!-- Product Card 4 -->
-      <div class="group flex flex-col bg-white rounded-2xl border border-border overflow-hidden hover:shadow-lg hover:border-primary/30 transition-all duration-300 hidden md:flex">
-        <div class="relative aspect-square bg-card-grey p-4 flex items-center justify-center overflow-hidden">
-          <img src="https://images.unsplash.com/photo-1546435770-a3e426bf472b?w=400&q=80&fit=crop" alt="Headphones" class="w-full h-full object-contain group-hover:scale-110 transition-transform duration-500">
-          <button class="absolute top-3 right-3 size-8 bg-white rounded-full shadow-sm flex items-center justify-center text-secondary hover:text-error transition-colors opacity-0 group-hover:opacity-100 translate-y-2 group-hover:translate-y-0 cursor-pointer">
-            <i data-lucide="heart" class="size-4"></i>
-          </button>
-        </div>
-        <div class="p-4 flex flex-col flex-1">
-          <h3 class="font-medium text-foreground text-sm line-clamp-2 mb-1 group-hover:text-primary transition-colors">Sennheiser Momentum 4 Wireless</h3>
-          <div class="flex items-center gap-1 text-warning mb-2">
-            <i data-lucide="star" class="size-3 fill-current"></i><span class="text-xs text-secondary ml-1">4.8</span>
-          </div>
-          <div class="mt-auto flex items-center justify-between">
-            <span class="font-bold text-lg text-foreground">$349.00</span>
-            <button onclick="addToCart()" class="size-8 bg-primary/10 text-primary rounded-full flex items-center justify-center hover:bg-primary hover:text-white transition-colors cursor-pointer">
-              <i data-lucide="plus" class="size-4"></i>
-            </button>
-          </div>
-        </div>
-      </div>
     </div>
   </div>
 
