@@ -309,8 +309,10 @@
             </div>
           <?php endforeach; ?>
 
-
         </div>
+        <?php if (empty($products)): ?>
+          <p class="text-center">this seller has no products yet.</p>
+        <?php endif; ?>
         
       </section>
 

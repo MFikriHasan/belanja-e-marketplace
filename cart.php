@@ -1,18 +1,56 @@
 <?php
-    
-    require 'koneksi.php';
-    include 'login_check.php';
+require 'koneksi.php';
+include 'login_check.php';
 
-    check_access_control('buyer');
+check_access_control('buyer');
 
-    if (isset($_POST['remove'])) {
-        $_SESSION['cart'] = [];
+
+if (isset($_POST['remove'])) {
+    $_SESSION['cart'] = [];
+}
+
+
+if (isset($_POST['btn_add'])) {
+    $key = isset($_POST['add']) ? $_POST['add'] : '';
+    if ($key !== '' && isset($_SESSION['cart'][$key])) {
+        $_SESSION['cart'][$key]['qty'] += 1;
     }
+}
 
-    $carts = isset($_SESSION['cart']) ? $_SESSION['cart'] : [];
-    $total_items = array_sum(array_column($carts, 'qty'));
 
+if (isset($_POST['btn_reduce'])) {
+    $key = isset($_POST['reduce']) ? $_POST['reduce'] : '';
     
+    if ($key !== '' && isset($_SESSION['cart'][$key])) {
+        
+        if ($_SESSION['cart'][$key]['qty'] > 1) {
+            $_SESSION['cart'][$key]['qty'] -= 1;
+        } else {
+            
+            unset($_SESSION['cart'][$key]);
+        }
+    }
+}
+
+$total = 0; 
+$total_quantity = 0; 
+$grandtotal = 0;
+
+foreach ($_SESSION['cart'] as $key => $item) {
+    
+    $subtotal_per_item = $item['price'] * $item['qty'];
+    
+    
+    $total += $subtotal_per_item;
+    $total_quantity += $item['qty'];
+    $grandtotal = ($total + 15) - 19;
+}
+
+
+$carts = isset($_SESSION['cart']) ? $_SESSION['cart'] : [];
+$total_items = array_sum(array_column($carts, 'qty'));
+
+
 ?>
 
 <!DOCTYPE html>
@@ -245,19 +283,24 @@
 
                   <!-- Quantity Control -->
                   <div class="flex items-center border border-border-color rounded-lg bg-surface shadow-sm">
-                    <button class="w-8 h-8 flex items-center justify-center text-text-muted hover:text-primary hover:bg-primary-light rounded-l-lg transition-colors cursor-pointer"
-                      data-qty-btn="minus" data-target="<?= htmlspecialchars($key) ?>">
-                      <i data-lucide="minus" class="w-4 h-4"></i>
-                    </button>
-                    <input type="number"
-                      class="w-10 h-8 text-center text-sm font-medium border-x border-border-color focus:outline-none bg-transparent"
-                      value="<?= (int)$item['qty'] ?>" min="1" max="10"
-                      data-qty-input="<?= htmlspecialchars($key) ?>">
-                    <button class="w-8 h-8 flex items-center justify-center text-text-muted hover:text-primary hover:bg-primary-light rounded-r-lg transition-colors cursor-pointer"
-                      data-qty-btn="plus" data-target="<?= htmlspecialchars($key) ?>">
-                      <i data-lucide="plus" class="w-4 h-4"></i>
-                    </button>
-                  </div>
+                      <form action="" method="post">
+                        <input type="hidden" name="reduce" value="<?= $key ?>">
+                        <button type="submit" name="btn_reduce" class="w-8 h-8 flex items-center justify-center text-text-muted hover:text-primary hover:bg-primary-light rounded-l-lg transition-colors cursor-pointer">
+                          <i data-lucide="minus" class="w-4 h-4"></i>
+                        </button>
+                      </form>
+                      <input type="number"
+                        class="w-10 h-8 text-center text-sm font-medium border-x border-border-color focus:outline-none bg-transparent"
+                        value="<?= (int)$item['qty'] ?>"
+                        >
+                      <form action="" method="post">
+                        <input type="hidden" name="add" value="<?= $key ?>">
+                        <button type="submit" name="btn_add" class="w-8 h-8 flex items-center justify-center text-text-muted hover:text-primary hover:bg-primary-light rounded-r-lg transition-colors cursor-pointer">
+                          <i data-lucide="plus" class="w-4 h-4"></i>
+                        </button>
+                      </form>
+                    </div>
+                  
                 </div>
               </div>
             </div>
@@ -298,8 +341,8 @@
             <!-- Breakdown -->
             <div class="space-y-3 text-sm">
               <div class="flex justify-between text-text-muted">
-                <span>Subtotal (<span data-summary-count>4</span> items)</span>
-                <span class="font-medium text-text-main" data-summary-subtotal>$519.00</span>
+                <span>Subtotal (<span><?= $total_items ?></span> items)</span>
+                <span class="font-medium text-text-main">$<?= number_format($total, 0, ".", ",") ?></span>
               </div>
               <div class="flex justify-between text-text-muted">
                 <span>Shipping Estimate</span>
@@ -320,7 +363,7 @@
                 <p class="text-xs text-text-muted">Including VAT</p>
               </div>
               <div class="text-right">
-                <p class="text-2xl font-bold text-primary" data-summary-total>$515.00</p>
+                <p class="text-2xl font-bold text-primary">$<?= number_format($grandtotal, 0, ".", ",") ?></p>
               </div>
             </div>
 
@@ -389,8 +432,7 @@
 </div>
 
 <!-- Delete Confirmation Modal -->
-    <form action="" method="post">
-        <div id="delete-modal" class="fixed inset-0 bg-text-main/40 backdrop-blur-sm z-50 hidden items-center justify-center p-4 opacity-0 transition-opacity duration-300">
+    <div id="delete-modal" class="fixed inset-0 bg-text-main/40 backdrop-blur-sm z-50 hidden items-center justify-center p-4 opacity-0 transition-opacity duration-300">
             <div class="bg-surface rounded-2xl w-full max-w-sm shadow-2xl transform scale-95 transition-transform duration-300" id="delete-modal-content">
             <div class="p-6 text-center">
                 <div class="w-16 h-16 bg-danger/10 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -403,14 +445,15 @@
                 <button class="flex-1 py-2.5 px-4 bg-background border border-border-color text-text-main rounded-xl font-medium hover:bg-border-color transition-colors cursor-pointer" onclick="closeDeleteModal()">
                     Cancel
                 </button>
-                <button type="submit" name="remove" class="flex-1 py-2.5 px-4 bg-danger text-white rounded-xl font-medium hover:bg-red-600 transition-colors cursor-pointer shadow-md shadow-danger/20">
-                    Yes, Remove
-                </button>
+                <form action="" method="post">
+                  <button type="submit" name="remove" class="flex-1 py-2.5 px-4 bg-danger text-white rounded-xl font-medium hover:bg-red-600 transition-colors cursor-pointer shadow-md shadow-danger/20">
+                      Yes, Remove
+                  </button>
+                </form>
                 </div>
             </div>
             </div>
-        </div>
-    </form>
+    </div>
 
 <script>
 

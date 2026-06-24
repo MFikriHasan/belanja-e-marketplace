@@ -4,6 +4,9 @@
     check_access_control('buyer');
     $buyer_id = (int)$_SESSION['buyer_id'];
 
+    $shipping_status = isset($_GET['shipping_status']) ? $_GET['shipping_status'] : [];
+    
+
     $sql = "SELECT 
             td.id AS detail_id,
             t.id AS transaction_id,
@@ -23,8 +26,12 @@
             JOIN buyer b ON t.buyer_id = b.id
             JOIN color_varian cv ON td.color_varian_id = cv.id
             JOIN seller s ON td.seller_id = s.id
-            WHERE t.buyer_id = ?
-            ORDER BY t.date DESC, td.id DESC";
+            WHERE t.buyer_id = ?";
+    if ($shipping_status) {
+      $sql .= " AND td.shipping_status = '". $shipping_status ."'";
+    }
+
+    $sql .= " ORDER BY t.date DESC, td.id DESC";
 
     $stmt = $koneksi->prepare($sql);
     $stmt->bind_param("i", $buyer_id);
@@ -99,10 +106,11 @@
       <div class="bg-white rounded-2xl border border-border p-2 mb-6 flex flex-col sm:flex-row justify-between items-center gap-4 shadow-sm">
         <div class="overflow-x-auto scrollbar-hide w-full sm:w-auto">
           <nav class="flex min-w-max px-2">
-            <button onclick="filterByTab('status', 'all')" data-filter-type="status" data-filter-value="all" class="tab-btn py-3 px-4 border-b-2 border-primary text-primary font-semibold whitespace-nowrap transition-colors">All Orders</button>
-            <button onclick="filterByTab('status', 'pending')" data-filter-type="status" data-filter-value="pending" class="tab-btn py-3 px-4 border-b-2 border-transparent text-secondary hover:text-foreground whitespace-nowrap transition-colors">Pending</button>
-            <button onclick="filterByTab('status', 'success')" data-filter-type="status" data-filter-value="success" class="tab-btn py-3 px-4 border-b-2 border-transparent text-secondary hover:text-foreground whitespace-nowrap transition-colors">Success</button>
-            <button onclick="filterByTab('status', 'failed')" data-filter-type="status" data-filter-value="failed" class="tab-btn py-3 px-4 border-b-2 border-transparent text-secondary hover:text-foreground whitespace-nowrap transition-colors">Failed</button>
+            <a href="/history_transaction.php" class="tab-btn py-3 px-4 border-b-2 <?= empty($shipping_status) ? 'border-primary text-primary font-semibold' : 'border-transparent text-secondary hover:text-foreground' ?> whitespace-nowrap transition-colors">All Orders</a>
+            <a href="?shipping_status=<?= 'pending' ?>" class="tab-btn py-3 px-4 border-b-2 <?= ($shipping_status) == 'pending' ? 'border-primary text-primary font-semibold' : 'border-transparent text-secondary hover:text-foreground' ?> whitespace-nowrap transition-colors">Pending</a>
+            <a href="?shipping_status=<?= 'shipped' ?>" class="tab-btn py-3 px-4 border-b-2 <?= ($shipping_status) == 'shipped' ? 'border-primary text-primary font-semibold' : 'border-transparent text-secondary hover:text-foreground' ?> whitespace-nowrap transition-colors">Shipped</a>
+            <a href="?shipping_status=<?= 'completed' ?>" class="tab-btn py-3 px-4 border-b-2 <?= ($shipping_status) == 'completed' ? 'border-primary text-primary font-semibold' : 'border-transparent text-secondary hover:text-foreground' ?> whitespace-nowrap transition-colors">Completed</a>
+            <a href="?shipping_status=<?= 'failed' ?>" class="tab-btn py-3 px-4 border-b-2 <?= ($shipping_status) == 'failed' ? 'border-primary text-primary font-semibold' : 'border-transparent text-secondary hover:text-foreground' ?> whitespace-nowrap transition-colors">Failed</a>
           </nav>
         </div>
         <input type="hidden" id="statusFilter" value="all">
@@ -309,58 +317,6 @@
 </div>
 
 <script>
-
-
-  // Filtering Logic
-  document.addEventListener('DOMContentLoaded', () => {
-    document.getElementById('searchInput')?.addEventListener('input', applyFilters);
-    document.getElementById('selectDateRange')?.addEventListener('change', applyFilters);
-  });
-
-  function applyFilters() {
-    const search = (document.getElementById('searchInput')?.value || '').toLowerCase().trim();
-    const status = document.getElementById('statusFilter')?.value || 'all';
-    let visible = 0;
-
-    document.querySelectorAll('[data-item-id]').forEach(item => {
-      const text = (item.dataset.searchable || '').toLowerCase();
-      const itemStatus = item.dataset.status;
-      
-      const matchesSearch = search === '' || text.includes(search);
-      const matchesStatus = status === 'all' || itemStatus === status;
-      
-      const show = matchesSearch && matchesStatus;
-      item.style.display = show ? '' : 'none';
-      if (show) visible++;
-    });
-
-    const noResults = document.getElementById('noResults');
-    if (noResults) {
-      if (visible === 0) {
-        noResults.classList.remove('hidden');
-        noResults.classList.add('flex');
-      } else {
-        noResults.classList.add('hidden');
-        noResults.classList.remove('flex');
-      }
-    }
-  }
-
-  function filterByTab(type, value) {
-    document.querySelectorAll(`[data-filter-type="${type}"]`).forEach(btn => {
-      const isActive = btn.dataset.filterValue === value;
-      if (isActive) {
-        btn.classList.remove('border-transparent', 'text-secondary');
-        btn.classList.add('border-primary', 'text-primary');
-      } else {
-        btn.classList.add('border-transparent', 'text-secondary');
-        btn.classList.remove('border-primary', 'text-primary');
-      }
-    });
-    document.getElementById(`${type}Filter`).value = value;
-    applyFilters();
-  }
-
   // Modal Logic
   function viewItem(detailModalId) {
 
@@ -431,10 +387,6 @@
   function handleSearch(val) {
     // Sync with main search input if needed, or just handle local modal search
     const mainInput = document.getElementById('searchInput');
-    if(mainInput) {
-      mainInput.value = val;
-      applyFilters();
-    }
   }
 
   document.getElementById('search-modal').addEventListener('click', function(e) { if (e.target === this) closeSearchModal(); });

@@ -241,7 +241,7 @@ if (isset($_POST['submit'])) {
       
       <!-- Footer Link -->
       <p class="text-center text-secondary text-sm mt-8">
-        Don't have an account? <a href="#" class="font-semibold text-primary hover:text-primary-hover transition-colors">Sign up for free</a>
+        Don't have an account? <a href="signup_seller.php"  class="font-semibold text-primary hover:text-primary-hover transition-colors">Sign up for free</a>
       </p>
 
     </div>

@@ -197,7 +197,7 @@
                 <i data-lucide="map-pin-house" class="w-4 h-4 text-secondary"></i>
               </div>
               <div>
-                <p class="font-medium group-hover:text-primary transition-colors capitalize"><?= $shipping_address ?? 'No shipping address added yet!' ?></p>
+                <p class="font-medium transition-colors capitalize"><?= !empty($shipping_address) ? $shipping_address : 'You have not set an address yet' ?></p>
               </div>
             </div>
           </label>

@@ -33,7 +33,7 @@ $new_releases = $exec->fetch_all(MYSQLI_ASSOC);
 
 // sellers
 
-$sqlS = "SELECT id,  name, email, logo FROM seller LIMIT 6";
+$sqlS = "SELECT id,  name, email, logo FROM seller ORDER BY RAND() LIMIT 6";
 
 $exec = $koneksi->execute_query($sqlS);
 
