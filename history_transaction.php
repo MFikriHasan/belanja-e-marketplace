@@ -249,7 +249,7 @@
                   </div>
                   <div class="p-4">
                     <p class="font-medium text-foreground"><?= $row['buyer_name'] ?></p>
-                    <p class="text-secondary text-sm mt-1"><?= $row['buyer_address'] ?></p>
+                    <p class="text-secondary text-sm mt-1"><?= !empty($row['buyer_address']) ? $row['buyer_address'] : 'You have not set an address yet' ?></p>
                   </div>
                 </div>
               </div>

@@ -9,7 +9,6 @@ if (isset($_POST['remove'])) {
     $_SESSION['cart'] = [];
 }
 
-
 if (isset($_POST['btn_add'])) {
     $key = isset($_POST['add']) ? $_POST['add'] : '';
     if ($key !== '' && isset($_SESSION['cart'][$key])) {
@@ -17,40 +16,45 @@ if (isset($_POST['btn_add'])) {
     }
 }
 
-
 if (isset($_POST['btn_reduce'])) {
     $key = isset($_POST['reduce']) ? $_POST['reduce'] : '';
     
     if ($key !== '' && isset($_SESSION['cart'][$key])) {
-        
         if ($_SESSION['cart'][$key]['qty'] > 1) {
             $_SESSION['cart'][$key]['qty'] -= 1;
         } else {
-            
             unset($_SESSION['cart'][$key]);
         }
     }
 }
 
+
+$carts = isset($_SESSION['cart']) ? $_SESSION['cart'] : [];
+
+
 $total = 0; 
 $total_quantity = 0; 
 $grandtotal = 0;
+$shipping_cost = 15; 
+$discount = 19;     
 
-foreach ($_SESSION['cart'] as $key => $item) {
-    
+
+foreach ($carts as $key => $item) {
     $subtotal_per_item = $item['price'] * $item['qty'];
-    
     
     $total += $subtotal_per_item;
     $total_quantity += $item['qty'];
-    $grandtotal = ($total + 15) - 19;
 }
 
 
-$carts = isset($_SESSION['cart']) ? $_SESSION['cart'] : [];
-$total_items = array_sum(array_column($carts, 'qty'));
+if ($total > 0) {
+    $grandtotal = ($total + $shipping_cost) - $discount;
+} else {
+    $grandtotal = 0;
+}
 
 
+$total_items = $total_quantity; 
 ?>
 
 <!DOCTYPE html>
