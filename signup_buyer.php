@@ -1,3 +1,41 @@
+<?php
+require 'koneksi.php';
+$server_message = '';
+$server_error = '';
+$name_value = '';
+$email_value = '';
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $name_value = trim($_POST['name'] ?? '');
+    $email_value = trim($_POST['email'] ?? '');
+    $password = $_POST['password'] ?? '';
+    $confirm_password = $_POST['confirm_password'] ?? '';
+
+    if ($name_value === '' || $email_value === '' || $password === '' || $confirm_password === '') {
+        $server_error = 'All fields are required.';
+    } elseif ($password !== $confirm_password) {
+        $server_error = 'Password and confirm password do not match.';
+    } elseif (strlen($password) < 8) {
+        $server_error = 'Password must be at least 8 characters.';
+    } else {
+        $hashed_password = password_hash($password, PASSWORD_DEFAULT);
+        $stmt = $koneksi->prepare("INSERT INTO buyer (name, email, password) VALUES (?, ?, ?)");
+        if ($stmt) {
+            $stmt->bind_param("sss", $name_value, $email_value, $hashed_password);
+            if ($stmt->execute()) {
+                $server_message = 'Registration successful. Please login.';
+                $name_value = '';
+                $email_value = '';
+            } else {
+                $server_error = $koneksi->errno === 1062 ? 'Email already registered.' : 'Failed to save account.';
+            }
+            $stmt->close();
+        } else {
+            $server_error = 'Database error. Please try again.';
+        }
+    }
+}
+?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -113,8 +151,18 @@
         <p class="text-secondary">Please enter your details to create your account.</p>
       </div>
 
+      <?php if ($server_message !== ''): ?>
+      <div class="rounded-2xl border border-success/30 bg-success/10 p-4 text-success text-sm mb-4">
+        <?= htmlspecialchars($server_message) ?>
+      </div>
+      <?php elseif ($server_error !== ''): ?>
+      <div class="rounded-2xl border border-error/30 bg-error/10 p-4 text-error text-sm mb-4">
+        <?= htmlspecialchars($server_error) ?>
+      </div>
+      <?php endif; ?>
+
       <!-- Form -->
-      <div class="flex flex-col gap-5">
+      <form id="signupForm" method="post" action="" onsubmit="return validateSignupForm()" class="flex flex-col gap-5">
         
         <!-- Full Name Input -->
         <div class="flex flex-col gap-2">
@@ -126,6 +174,8 @@
             <input 
               type="text" 
               id="inputFullName" 
+              name="name"
+              value="<?= htmlspecialchars($name_value) ?>"
               class="w-full pl-11 pr-4 py-3.5 rounded-2xl border border-border bg-muted/50 focus:bg-white focus:ring-4 focus:ring-primary/10 focus:border-primary outline-none transition-all text-foreground placeholder:text-secondary/70" 
               placeholder="Enter your name"
             >
@@ -142,6 +192,8 @@
             <input 
               type="email" 
               id="inputEmail" 
+              name="email"
+              value="<?= htmlspecialchars($email_value) ?>"
               class="w-full pl-11 pr-4 py-3.5 rounded-2xl border border-border bg-muted/50 focus:bg-white focus:ring-4 focus:ring-primary/10 focus:border-primary outline-none transition-all text-foreground placeholder:text-secondary/70" 
               placeholder="Enter your email"
             >
@@ -158,6 +210,7 @@
             <input 
               type="password" 
               id="inputPassword" 
+              name="password"
               class="w-full pl-11 pr-12 py-3.5 rounded-2xl border border-border bg-muted/50 focus:bg-white focus:ring-4 focus:ring-primary/10 focus:border-primary outline-none transition-all text-foreground placeholder:text-secondary/70" 
               placeholder="••••••••"
               autocomplete="current-password"
@@ -203,6 +256,7 @@
             <input 
               type="password" 
               id="inputConfirmPassword" 
+              name="confirm_password"
               class="w-full pl-11 pr-12 py-3.5 rounded-2xl border border-border bg-muted/50 focus:bg-white focus:ring-4 focus:ring-primary/10 focus:border-primary outline-none transition-all text-foreground placeholder:text-secondary/70" 
               placeholder="••••••••"
               autocomplete="current-password"
@@ -213,8 +267,8 @@
               class="absolute inset-y-0 right-0 pr-4 flex items-center cursor-pointer text-secondary hover:text-foreground transition-colors outline-none focus-visible:text-primary"
               aria-label="Toggle password visibility"
             >
-              <i data-lucide="eye" id="iconEye" class="w-5 h-5"></i>
-              <i data-lucide="eye-off" id="iconEyeOff" class="w-5 h-5 hidden"></i>
+              <i data-lucide="eye" class="w-5 h-5"></i>
+              <i data-lucide="eye-off" class="w-5 h-5 hidden"></i>
             </button>
           </div>
         </div>
@@ -223,16 +277,14 @@
 
         <!-- Submit Button -->
         <button 
-          onclick="handleLogin()" 
+          type="submit" 
           class="w-full py-3.5 px-4 bg-primary hover:bg-primary-hover text-white rounded-2xl font-semibold shadow-lg shadow-primary/25 transition-all active:scale-[0.98] mt-4 cursor-pointer flex items-center justify-center gap-2"
         >
           <span>Create account</span>
           <i data-lucide="arrow-right" class="w-4 h-4"></i>
         </button>
 
-        
-
-      </div>
+      </form>
 
       <!-- Footer Link -->
       <p class="text-center text-secondary text-sm mt-8">
@@ -262,6 +314,28 @@
     
     
     lucide.createIcons();
+  }
+
+  // Client-side form validation for signup
+  function validateSignupForm() {
+    const name = document.getElementById('inputFullName').value.trim();
+    const email = document.getElementById('inputEmail').value.trim();
+    const password = document.getElementById('inputPassword').value;
+    const confirmPassword = document.getElementById('inputConfirmPassword').value;
+
+    if (!name || !email || !password || !confirmPassword) {
+      showToast('All fields are required.', 'error');
+      return false;
+    }
+    if (password.length < 8) {
+      showToast('Password must be at least 8 characters.', 'error');
+      return false;
+    }
+    if (password !== confirmPassword) {
+      showToast('Password and confirm password do not match.', 'error');
+      return false;
+    }
+    return true;
   }
 
   // Password Strength Meter
@@ -391,6 +465,15 @@
       setTimeout(() => toast.remove(), 300);
     }, 3000);
   }
+
+  // Show server-side response message on page load
+  window.addEventListener('DOMContentLoaded', function() {
+    <?php if ($server_message !== ''): ?>
+    showToast('<?= addslashes($server_message) ?>', 'success');
+    <?php elseif ($server_error !== ''): ?>
+    showToast('<?= addslashes($server_error) ?>', 'error');
+    <?php endif; ?>
+  });
 
   // Add custom shake animation to Tailwind config dynamically for validation feedback
   tailwind.config = {
