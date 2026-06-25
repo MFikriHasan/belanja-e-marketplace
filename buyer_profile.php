@@ -11,9 +11,10 @@ $buyer_id = $_SESSION['buyer_id'];
 $success_message = '';
 $error_message = '';
 $buyer = array();
+$avatar_default = 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=300&h=300&fit=crop';
 
 // Ambil data buyer dari database
-$query = "SELECT id, name, email, phone, birth, address FROM buyer WHERE id = ?";
+$query = "SELECT id, name, email, phone, birth, address, avatar FROM buyer WHERE id = ?";
 $stmt = $koneksi->prepare($query);
 $stmt->bind_param('i', $buyer_id);
 $stmt->execute();
@@ -35,6 +36,39 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $address = trim($_POST['address'] ?? '');
     $new_password = trim($_POST['new_password'] ?? '');
     $confirm_password = trim($_POST['confirm_password'] ?? '');
+    $avatar_uploaded_name = null;
+
+    if (isset($_FILES['avatar']) && $_FILES['avatar']['error'] !== UPLOAD_ERR_NO_FILE) {
+        $avatar_file = $_FILES['avatar'];
+
+        if ($avatar_file['error'] === UPLOAD_ERR_OK) {
+            $allowed_mime = ['image/jpg', 'image/jpeg', 'image/png', 'image/webp'];
+            $finfo = finfo_open(FILEINFO_MIME_TYPE);
+            $mime_type = finfo_file($finfo, $avatar_file['tmp_name']);
+            finfo_close($finfo);
+
+            if (!in_array($mime_type, $allowed_mime, true)) {
+                $error_message = 'Format file avatar tidak valid. Gunakan JPG, JPEG, PNG, atau WEBP.';
+            } elseif ($avatar_file['size'] > 5 * 1024 * 1024) {
+                $error_message = 'Ukuran file avatar terlalu besar. Maksimal 5MB.';
+            } else {
+                $upload_dir = 'storage/image/';
+                if (!is_dir($upload_dir)) {
+                    mkdir($upload_dir, 0755, true);
+                }
+
+                $extension = strtolower(pathinfo($avatar_file['name'], PATHINFO_EXTENSION));
+                $avatar_uploaded_name = 'avatar_' . $buyer_id . '_' . time() . '.' . $extension;
+                $target_path = $upload_dir . $avatar_uploaded_name;
+
+                if (!move_uploaded_file($avatar_file['tmp_name'], $target_path)) {
+                    $error_message = 'Upload avatar gagal. Silakan coba lagi.';
+                }
+            }
+        } else {
+            $error_message = 'Upload avatar gagal. Silakan coba lagi.';
+        }
+    }
 
     // Validasi input
     if (empty($name) || empty($email)) {
@@ -49,20 +83,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // Jika password baru diisi, hash password
         if (!empty($new_password)) {
             $hashed_password = password_hash($new_password, PASSWORD_DEFAULT);
-            $update_query = "UPDATE buyer SET name = ?, email = ?, phone = ?, birth = ?, address = ?, password = ? WHERE id = ?";
-            $update_stmt = $koneksi->prepare($update_query);
-            $update_stmt->bind_param('ssssssi', $name, $email, $phone, $date_of_birth, $address, $hashed_password, $buyer_id);
+            if ($avatar_uploaded_name !== null) {
+                $update_query = "UPDATE buyer SET name = ?, email = ?, phone = ?, birth = ?, address = ?, password = ?, avatar = ? WHERE id = ?";
+                $update_stmt = $koneksi->prepare($update_query);
+                $update_stmt->bind_param('sssssssi', $name, $email, $phone, $date_of_birth, $address, $hashed_password, $avatar_uploaded_name, $buyer_id);
+            } else {
+                $update_query = "UPDATE buyer SET name = ?, email = ?, phone = ?, birth = ?, address = ?, password = ? WHERE id = ?";
+                $update_stmt = $koneksi->prepare($update_query);
+                $update_stmt->bind_param('ssssssi', $name, $email, $phone, $date_of_birth, $address, $hashed_password, $buyer_id);
+            }
         } else {
             // Jika password kosong, jangan update password
-            $update_query = "UPDATE buyer SET name = ?, email = ?, phone = ?, birth = ?, address = ? WHERE id = ?";
-            $update_stmt = $koneksi->prepare($update_query);
-            $update_stmt->bind_param('sssssi', $name, $email, $phone, $date_of_birth, $address, $buyer_id);
+            if ($avatar_uploaded_name !== null) {
+                $update_query = "UPDATE buyer SET name = ?, email = ?, phone = ?, birth = ?, address = ?, avatar = ? WHERE id = ?";
+                $update_stmt = $koneksi->prepare($update_query);
+                $update_stmt->bind_param('ssssssi', $name, $email, $phone, $date_of_birth, $address, $avatar_uploaded_name, $buyer_id);
+            } else {
+                $update_query = "UPDATE buyer SET name = ?, email = ?, phone = ?, birth = ?, address = ? WHERE id = ?";
+                $update_stmt = $koneksi->prepare($update_query);
+                $update_stmt->bind_param('sssssi', $name, $email, $phone, $date_of_birth, $address, $buyer_id);
+            }
         }
 
         if ($update_stmt->execute()) {
             // Update session
             $_SESSION['buyer_name'] = $name;
             $_SESSION['buyer_email'] = $email;
+            if ($avatar_uploaded_name !== null) {
+                $_SESSION['buyer_avatar'] = $avatar_uploaded_name;
+            }
 
             // Update data buyer untuk ditampilkan
             $buyer['name'] = $name;
@@ -70,6 +119,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $buyer['phone'] = $phone;
             $buyer['birth'] = $date_of_birth;
             $buyer['address'] = $address;
+            if ($avatar_uploaded_name !== null) {
+                $buyer['avatar'] = $avatar_uploaded_name;
+            }
 
             $success_message = 'Profil berhasil diperbarui!';
         } else {
@@ -177,7 +229,7 @@ $stmt->close();
           <!-- Avatar Upload -->
            
           <div id="avatarContainer" class="relative group cursor-pointer mb-5" title="Click to change avatar">
-            <img id="profileAvatar" src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=300&h=300&fit=crop" alt="Profile Avatar" class="size-32 md:size-40 rounded-full object-cover ring-4 ring-muted shadow-inner transition-all group-hover:ring-primary/20">
+            <img id="profileAvatar" src="<?= htmlspecialchars(!empty($buyer['avatar']) ? 'storage/image/' . $buyer['avatar'] : $avatar_default) ?>" alt="Profile Avatar" class="size-32 md:size-40 rounded-full object-cover ring-4 ring-muted shadow-inner transition-all group-hover:ring-primary/20">
             
             <!-- Hover Overlay -->
             <div class="absolute inset-0 bg-foreground/50 rounded-full flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
@@ -189,8 +241,6 @@ $stmt->close();
             <div class="absolute bottom-1 right-1 bg-success text-white p-1.5 rounded-full border-4 border-white shadow-sm" title="Verified Account">
               <i data-lucide="check" class="size-4"></i>
             </div>
-            
-            <input type="file" id="inputAvatar" class="hidden" accept="image/*">
           </div>
 
           <h2 class="font-bold text-xl text-foreground mb-1"><?php echo htmlspecialchars($buyer['name'] ?? 'User'); ?></h2>
@@ -242,7 +292,8 @@ $stmt->close();
       <div class="lg:col-span-8">
         <div class="bg-white rounded-3xl border border-border overflow-hidden shadow-sm">
           
-          <form id="profileForm" method="POST" action="">
+          <form id="profileForm" method="POST" action="" enctype="multipart/form-data">
+            <input type="file" id="inputAvatar" name="avatar" class="hidden" accept="image/*">
             
             <!-- Personal Info Section -->
             <div class="p-6 md:p-8 border-b border-border">
@@ -486,9 +537,13 @@ $stmt->close();
 
       const reader = new FileReader();
       reader.onload = function(e) {
-        // Update both avatars
-        profileAvatar.src = e.target.result;
-        navAvatar.src = e.target.result;
+        // Update avatar preview
+        if (profileAvatar) {
+          profileAvatar.src = e.target.result;
+        }
+        if (navAvatar) {
+          navAvatar.src = e.target.result;
+        }
         showToast('Profile photo updated successfully', 'success');
       }
       reader.readAsDataURL(file);
