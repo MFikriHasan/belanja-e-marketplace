@@ -11,6 +11,7 @@ $seller_id = $_SESSION['seller_id'];
 $success_message = '';
 $error_message = '';
 $seller = array();
+$seller_logo_default = 'https://images.unsplash.com/photo-1560179707-f14e90ef3623?w=300&h=300&fit=crop';
 
 // total sales
 $q_total_sales = "SELECT COALESCE(SUM(td.qty), 0) AS total_sales 
@@ -26,7 +27,7 @@ $res_sales = $stmt_sales->get_result()->fetch_assoc();
 $total_sales = $res_sales['total_sales'];
 
 // Ambil data seller dari database
-$query = "SELECT id, name, email, description, address, opening_hour, closing_hour, created_at FROM seller WHERE id = ?";
+$query = "SELECT id, name, email, description, address, opening_hour, closing_hour, created_at, logo FROM seller WHERE id = ?";
 $stmt = $koneksi->prepare($query);
 $stmt->bind_param('i', $seller_id);
 $stmt->execute();
@@ -49,6 +50,39 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $closing_hour = trim($_POST['closing_hour'] ?? '');
     $new_password = trim($_POST['new_password'] ?? '');
     $confirm_password = trim($_POST['confirm_password'] ?? '');
+    $logo_uploaded_name = null;
+
+    if (isset($_FILES['logo']) && $_FILES['logo']['error'] !== UPLOAD_ERR_NO_FILE) {
+        $logo_file = $_FILES['logo'];
+
+        if ($logo_file['error'] === UPLOAD_ERR_OK) {
+            $allowed_mime = ['image/jpg', 'image/jpeg', 'image/png', 'image/webp'];
+            $finfo = finfo_open(FILEINFO_MIME_TYPE);
+            $mime_type = finfo_file($finfo, $logo_file['tmp_name']);
+            finfo_close($finfo);
+
+            if (!in_array($mime_type, $allowed_mime, true)) {
+                $error_message = 'Format file logo tidak valid. Gunakan JPG, JPEG, PNG, atau WEBP.';
+            } elseif ($logo_file['size'] > 2 * 1024 * 1024) {
+                $error_message = 'Ukuran file logo terlalu besar. Maksimal 2MB.';
+            } else {
+                $upload_dir = 'storage/image/';
+                if (!is_dir($upload_dir)) {
+                    mkdir($upload_dir, 0755, true);
+                }
+
+                $extension = strtolower(pathinfo($logo_file['name'], PATHINFO_EXTENSION));
+                $logo_uploaded_name = 'logo_' . $seller_id . '_' . time() . '.' . $extension;
+                $target_path = $upload_dir . $logo_uploaded_name;
+
+                if (!move_uploaded_file($logo_file['tmp_name'], $target_path)) {
+                    $error_message = 'Upload logo gagal. Silakan coba lagi.';
+                }
+            }
+        } else {
+            $error_message = 'Upload logo gagal. Silakan coba lagi.';
+        }
+    }
 
     // Validasi input
     if (empty($name) || empty($email)) {
@@ -63,20 +97,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // Jika password baru diisi, hash password
         if (!empty($new_password)) {
             $hashed_password = password_hash($new_password, PASSWORD_DEFAULT);
-            $update_query = "UPDATE seller SET name = ?, email = ?, description = ?, address = ?, opening_hour = ?, closing_hour = ?, password = ? WHERE id = ?";
-            $update_stmt = $koneksi->prepare($update_query);
-            $update_stmt->bind_param('sssssssi', $name, $email, $description, $address, $opening_hour, $closing_hour, $hashed_password, $seller_id);
+            if ($logo_uploaded_name !== null) {
+                $update_query = "UPDATE seller SET name = ?, email = ?, description = ?, address = ?, opening_hour = ?, closing_hour = ?, password = ?, logo = ? WHERE id = ?";
+                $update_stmt = $koneksi->prepare($update_query);
+                $update_stmt->bind_param('ssssssssi', $name, $email, $description, $address, $opening_hour, $closing_hour, $hashed_password, $logo_uploaded_name, $seller_id);
+            } else {
+                $update_query = "UPDATE seller SET name = ?, email = ?, description = ?, address = ?, opening_hour = ?, closing_hour = ?, password = ? WHERE id = ?";
+                $update_stmt = $koneksi->prepare($update_query);
+                $update_stmt->bind_param('sssssssi', $name, $email, $description, $address, $opening_hour, $closing_hour, $hashed_password, $seller_id);
+            }
         } else {
             // Jika password kosong, jangan update password
-            $update_query = "UPDATE seller SET name = ?, email = ?, description = ?, address = ?, opening_hour = ?, closing_hour = ? WHERE id = ?";
-            $update_stmt = $koneksi->prepare($update_query);
-            $update_stmt->bind_param('ssssssi', $name, $email, $description, $address, $opening_hour, $closing_hour, $seller_id);
+            if ($logo_uploaded_name !== null) {
+                $update_query = "UPDATE seller SET name = ?, email = ?, description = ?, address = ?, opening_hour = ?, closing_hour = ?, logo = ? WHERE id = ?";
+                $update_stmt = $koneksi->prepare($update_query);
+                $update_stmt->bind_param('sssssssi', $name, $email, $description, $address, $opening_hour, $closing_hour, $logo_uploaded_name, $seller_id);
+            } else {
+                $update_query = "UPDATE seller SET name = ?, email = ?, description = ?, address = ?, opening_hour = ?, closing_hour = ? WHERE id = ?";
+                $update_stmt = $koneksi->prepare($update_query);
+                $update_stmt->bind_param('ssssssi', $name, $email, $description, $address, $opening_hour, $closing_hour, $seller_id);
+            }
         }
 
         if ($update_stmt->execute()) {
             // Update session
             $_SESSION['seller_name'] = $name;
             $_SESSION['seller_email'] = $email;
+            if ($logo_uploaded_name !== null) {
+                $_SESSION['seller_logo'] = $logo_uploaded_name;
+            }
 
             // Update data seller untuk ditampilkan
             $seller['name'] = $name;
@@ -85,6 +134,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $seller['address'] = $address;
             $seller['opening_hour'] = $opening_hour;
             $seller['closing_hour'] = $closing_hour;
+            if ($logo_uploaded_name !== null) {
+                $seller['logo'] = $logo_uploaded_name;
+            }
 
             $success_message = 'Profil berhasil diperbarui!';
         } else {
@@ -274,7 +326,7 @@ $stmt->close();
             
             <div class="relative group cursor-pointer mb-6" onclick="document.getElementById('logoUpload').click()">
               <div class="size-32 rounded-2xl border-2 border-dashed border-border p-1 transition-all group-hover:border-primary">
-                <img id="logoPreview" src="https://images.unsplash.com/photo-1560179707-f14e90ef3623?w=300&h=300&fit=crop" class="w-full h-full rounded-xl object-cover" alt="Current Logo">
+                <img id="logoPreview" src="<?= htmlspecialchars(!empty($seller['logo']) ? 'storage/image/' . $seller['logo'] : $seller_logo_default) ?>" class="w-full h-full rounded-xl object-cover" alt="Current Logo">
               </div>
               
               <!-- Hover Overlay -->
@@ -283,8 +335,6 @@ $stmt->close();
                 <span class="text-white text-xs font-medium">Change Logo</span>
               </div>
               
-              <!-- Hidden File Input -->
-              <input type="file" id="logoUpload" class="hidden" accept="image/*" onchange="handleImageUpload(event)">
             </div>
             
             <p class="text-sm text-secondary mb-6 px-4">Recommended size: 500x500px. Max file size: 2MB. Format: JPG, PNG.</p>
@@ -329,7 +379,8 @@ $stmt->close();
               <p class="text-sm text-secondary">Update your shop details and public description.</p>
             </div>
 
-            <form method="POST" action="">
+            <form method="POST" action="" enctype="multipart/form-data">
+            <input type="file" id="logoUpload" name="logo" class="hidden" accept="image/*" onchange="handleImageUpload(event)">
             <div class="p-6 md:p-8 space-y-8">
               <!-- Shop Name -->
               <div>
